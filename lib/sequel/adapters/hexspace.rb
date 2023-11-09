@@ -21,13 +21,18 @@ module Sequel
         Dataset
       end
 
-      def disconnect_connection(connection)
-        # nothing, as Hexspace does not appear to support a disconnection method
+      def disconnect_connection(conn)
+        # Hexspace does not appear to support a disconnection method
+        # To keep tests happy, mark the connection as invalid
+        conn.instance_variable_set(:@sequel_invalid, true)
       end
 
       def execute(sql, opts=OPTS)
         synchronize(opts[:server]) do |conn|
           res = log_connection_yield(sql, conn){conn.execute(sql)}
+        rescue => e
+          raise_error(e)
+        else
           yield res if defined?(yield)
         end
       end
@@ -38,6 +43,10 @@ module Sequel
         # Return nil instead of empty array.
         # Spark does not support primary keys nor autoincrementing values
         nil
+      end
+
+      def valid_connection?(conn)
+        !conn.instance_variable_get(:@sequel_invalid)
       end
     end
 

@@ -13,6 +13,18 @@ module Sequel
         :spark
       end
 
+      # Spark does not support primary keys, so do not
+      # add any options
+      def serial_primary_key_options
+        # We could raise an exception here instead of just
+        # ignoring the primary key setting.
+        {}
+      end
+ 
+      def supports_create_table_if_not_exists?
+        true
+      end
+
       # Spark does not support transactions.
       def transaction(opts=nil)
         yield
