@@ -57,14 +57,14 @@ module Sequel
         execute(sql) do |rows|
           next unless row = rows.shift
           columns = {}
-          row.transform_keys do |k|
+          row.transform_keys! do |k|
             columns[k] = k.to_sym
           end
-          @columns = columns
+          self.columns = columns.values
           yield row
 
           rows.each do |row|
-            row.transform_keys(columns)
+            row.transform_keys!(columns)
             yield row
           end
         end
