@@ -4,6 +4,8 @@ require_relative 'shared/spark'
 module Sequel
   module Hexspace
     class Client < ::Hexspace::Client
+      attr_accessor :sequel_db
+
       private
 
       def process_result(stmt)
@@ -46,7 +48,7 @@ module Sequel
             # timestamp type was commented out in hexspace
             when "timestamp"
                values.each do |v|
-                 rows[offset][name] = nulls[offset] == "1" ? nil : Time.parse(v)
+                 rows[offset][name] = nulls[offset] == "1" ? nil : sequel_db.to_application_timestamp(v)
                  offset += 1
                end
             when "date"
@@ -95,7 +97,9 @@ module Sequel
         opts = server_opts(server)
         opts[:username] = opts[:user]
         opts.select!{|k,v| !v.to_s == '' && ALLOWED_CLIENT_KEYWORDS.include?(k)}
-        Client.new(**opts)
+        client = Client.new(**opts)
+        client.sequel_db = self
+        client
       end
 
       def dataset_class_default
