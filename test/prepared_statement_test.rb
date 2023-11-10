@@ -201,7 +201,7 @@ describe "Prepared Statements and Bound Arguments" do
     @ds.filter(:id=>:$i).filter(:numb=>@ds.select(:numb).filter(:numb=>@ds.select(:numb).filter(:numb=>:$n))).filter(:id=>:$j).prepare(:select, :seq_select).call(:n=>10, :i=>1, :j=>1).must_equal [{:id=>1, :numb=>10}]
   end
   
-  cspecify "should support using a prepared_statement for a limit and offset", :db2 do
+  it "should support using a prepared_statement for a limit and offset" do
     @ds.insert(:id=>2, :numb=>20)
     ps = @ds.limit(:$n, :$n2).order(:id).prepare(:select, :seq_select)
     ps.call(:n=>1, :n2=>0).must_equal [{:id=>1, :numb=>10}]
@@ -323,7 +323,7 @@ describe "Bound Argument Types" do
     @ds.filter(:s=>:$x).prepare(:first, :ps_string).call(:x=>@vs[:s])[:s].must_equal @vs[:s]
   end
 
-  cspecify "should handle boolean type", [:jdbc, :sqlite], [:jdbc, :db2], :oracle do
+  it "should handle boolean type" do
     @ds.filter(:b=>:$x).prepare(:first, :ps_string).call(:x=>@vs[:b])[:b].must_equal @vs[:b]
   end
 end

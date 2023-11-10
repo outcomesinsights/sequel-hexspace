@@ -24,20 +24,11 @@ describe Sequel::Database do
     proc{@db << "S"}.must_raise(Sequel::DatabaseError)
   end
 
-  it "should have Sequel::DatabaseError#sql give the SQL causing the error" do
-    (@db << "SELECT") rescue (e = $!)
-    e.sql.must_equal "SELECT"
-  end if ENV['SEQUEL_ERROR_SQL']
-
   it "should store underlying wrapped exception in Sequel::DatabaseError" do
     begin
       @db << "SELECT"
     rescue Sequel::DatabaseError=>e
-      if defined?(Java::JavaLang::Exception)
-        (e.wrapped_exception.is_a?(Exception) || e.wrapped_exception.is_a?(Java::JavaLang::Exception)).must_equal true
-      else
-        e.wrapped_exception.must_be_kind_of(Exception)
-      end
+      e.wrapped_exception.must_be_kind_of(Exception)
     end
   end
 

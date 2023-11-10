@@ -1031,7 +1031,7 @@ describe "Sequel::Dataset main SQL methods" do
     @ds.select{[b, max(a).as(c)]}.group(:b).having{max(a) > 30}.all.each{|h| h[:c] = h[:c].to_i}.must_equal [{:b=>20, :c=>40}]
   end
   
-  cspecify "#having should work without a previous group", [proc{|db| db.sqlite_version < 33900}, :sqlite] do
+  it "#having should work without a previous group" do
     @ds = @ds.unordered
     @ds.select{max(a).as(c)}.having{max(a) > 30}.all.must_equal []
     @ds.insert(20, 30)
@@ -1198,7 +1198,7 @@ describe "Sequel::Dataset DSL support" do
     @ds.get{a.sql_number >> b >> 1}.to_i.must_equal 0
   end
 
-  cspecify "should work with bitwise AND and OR operators", :derby do
+  it "should work with bitwise AND and OR operators" do
     @ds.insert(3, 5)
     @ds.get{a.sql_number | b}.to_i.must_equal 7
     @ds.get{a.sql_number & b}.to_i.must_equal 1
@@ -1212,7 +1212,7 @@ describe "Sequel::Dataset DSL support" do
     @ds.get{~b.sql_number}.to_i.must_equal(-4)
   end
   
-  cspecify "should work with the bitwise xor operator", :derby do
+  it "should work with the bitwise xor operator" do
     @ds.insert(3, 5)
     @ds.get{a.sql_number ^ b}.to_i.must_equal 6
     @ds.get{a.sql_number ^ b ^ 1}.to_i.must_equal 7
