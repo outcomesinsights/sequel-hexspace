@@ -15,7 +15,7 @@ module Sequel
         check_status metadata
 
         rows = []
-        columns = metadata.schema.columns.map(&:columnName)
+        columns = metadata.schema.columns.map{|c| c.columnName.to_sym}
         types = metadata.schema.columns.map { |c| ::Hexspace::TYPE_NAMES[c.typeDesc.types.first.primitiveEntry.type].downcase }
 
         loop do
@@ -82,7 +82,7 @@ module Sequel
         req.operationHandle = stmt.operationHandle
         check_status client.CloseOperation(req)
 
-        rows
+        [rows, columns]
       end
     end
 
@@ -139,17 +139,10 @@ module Sequel
       include Spark::DatasetMethods
 
       def fetch_rows(sql)
-        execute(sql) do |rows|
-          next unless row = rows.shift
-          columns = {}
-          row.transform_keys! do |k|
-            columns[k] = k.to_sym
-          end
-          self.columns = columns.values
-          yield row
+        execute(sql) do |rows, columns|
+          self.columns = columns
 
           rows.each do |row|
-            row.transform_keys!(columns)
             yield row
           end
         end
