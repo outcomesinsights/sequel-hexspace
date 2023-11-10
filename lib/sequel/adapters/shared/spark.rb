@@ -115,6 +115,18 @@ module Sequel
         type == :select
       end
 
+      def supports_group_cube?
+        true
+      end
+
+      def supports_group_rollup?
+        true
+      end
+
+      def supports_grouping_sets?
+        true
+      end
+
       def supports_window_functions?
         true
       end
