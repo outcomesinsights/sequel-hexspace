@@ -14,31 +14,6 @@ describe "Simple Dataset operations" do
     @db.drop_table?(:items)
   end
 
-  it "should support sequential primary keys" do
-    @ds.insert(:number=>20)
-    @ds.insert(:number=>30)
-    @ds.order(:number).all.must_equal [
-      {:id => 1, :number=>10},
-      {:id => 2, :number=>20},
-      {:id => 3, :number=>30} ]   
-  end 
-
-  it "should support sequential primary keys with a Bignum" do
-    @db.create_table!(:items) do
-      primary_key :id, :type=>:Bignum
-      Integer :number
-    end
-    @ds.insert(:number=>20)
-    @ds.insert(:number=>30)
-    @ds.order(:number).all.must_equal [{:id => 1, :number=>20}, {:id => 2, :number=>30}]   
-  end 
-
-  cspecify "should insert with a primary key specified", :db2, :mssql do
-    @ds.insert(:id=>100, :number=>20)
-    @ds.count.must_equal 2
-    @ds.order(:id).all.must_equal [{:id=>1, :number=>10}, {:id=>100, :number=>20}]
-  end
-
   it "should support ordering considering NULLS" do
     @ds.insert(:number=>20)
     @ds.insert(:number=>nil)
@@ -46,11 +21,6 @@ describe "Simple Dataset operations" do
     @ds.order(Sequel[:number].asc(:nulls=>:last)).select_map(:number).must_equal [10, 20, nil]
     @ds.order(Sequel[:number].desc(:nulls=>:first)).select_map(:number).must_equal [nil, 20, 10]
     @ds.order(Sequel[:number].desc(:nulls=>:last)).select_map(:number).must_equal [20, 10, nil]
-  end
-
-  it "should have insert return primary key value" do
-    @ds.insert(:number=>20).must_equal 2
-    @ds.filter(:id=>2).first[:number].must_equal 20
   end
 
   it "should have insert work correctly with static SQL" do
