@@ -18,4 +18,4 @@ class Minitest::HooksSpec
   end
 end
 
-DB = Sequel.connect(ENV['SEQUEL_INTEGRATION_URL'] || 'hexspace:///')
+DB = Sequel.connect(ENV['SEQUEL_INTEGRATION_URL'] || 'hexspace:///sequel_hexspace_test')
