@@ -115,6 +115,9 @@ module Sequel
         type == :select
       end
 
+      def supports_window_functions?
+        true
+      end
     end
   end
 end
