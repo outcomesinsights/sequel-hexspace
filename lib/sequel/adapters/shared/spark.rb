@@ -103,6 +103,10 @@ module Sequel
         "false"
       end
 
+      def literal_string_append(sql, v)
+        sql << "'" << v.gsub(/(['\\])/, '\\\\\1') << "'"
+      end
+
       def literal_true
         "true"
       end
