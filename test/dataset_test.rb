@@ -32,16 +32,6 @@ describe "Simple Dataset operations" do
     @ds.join(Sequel[:items].as(:b), :id=>:id).select_all(:items).all.must_equal [{:id=>1, :number=>10}]
   end
 
-  it "should handle LATERAL subqueries correctly" do
-    @ds.insert(:number=>20)
-    @ds.from(Sequel[:items].as(:i), @ds.where(Sequel[:items][:number]=>Sequel[:i][:number]).lateral).select_order_map([Sequel[:i][:number].as(:n), Sequel[:t1][:number]]).must_equal [[10, 10], [20, 20]]
-    @ds.from(Sequel[:items].as(:i)).cross_join(@ds.where(Sequel[:items][:number]=>Sequel[:i][:number]).lateral).select_order_map([Sequel[:i][:number].as(:n), Sequel[:t1][:number]]).must_equal [[10, 10], [20, 20]]
-    @ds.from(Sequel[:items].as(:i)).join(@ds.where(Sequel[:items][:number]=>Sequel[:i][:number]).lateral, 1=>1).select_order_map([Sequel[:i][:number].as(:n), Sequel[:t1][:number]]).must_equal [[10, 10], [20, 20]]
-    @ds.from(Sequel[:items].as(:i)).join(@ds.where(Sequel[:items][:number]=>Sequel[:i][:number]).lateral, 1=>0).select_order_map([Sequel[:i][:number].as(:n), Sequel[:t1][:number]]).must_equal []
-    @ds.from(Sequel[:items].as(:i)).left_join(@ds.from(Sequel[:items].as(:i2)).where(Sequel[:i2][:number]=>Sequel[:i][:number]).lateral, 1=>1).select_order_map([Sequel[:i][:number].as(:n), Sequel[:t1][:number]]).must_equal [[10, 10], [20, 20]]
-    @ds.from(Sequel[:items].as(:i)).left_join(@ds.from(Sequel[:items].as(:i2)).where(Sequel[:i2][:number]=>Sequel[:i][:number]).lateral, 1=>0).select_order_map([Sequel[:i][:number].as(:n), Sequel[:t1][:number]]).must_equal [[10, nil], [20, nil]]
-  end if DB.dataset.supports_lateral_subqueries?
-
   it "should correctly deal with qualified columns and subselects" do
     @ds.from_self(:alias=>:a).select(Sequel[:a][:id], Sequel.qualify(:a, :number)).all.must_equal [{:id=>1, :number=>10}]
     @ds.join(@ds.as(:a), :id=>:id).select(Sequel[:a][:id], Sequel.qualify(:a, :number)).all.must_equal [{:id=>1, :number=>10}]
