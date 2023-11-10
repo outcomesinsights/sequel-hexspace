@@ -1,0 +1,8 @@
+# This file is only used for CI.
+
+source 'http://rubygems.org'
+
+gem 'hexspace'
+gem 'sequel'
+gem 'minitest-hooks'
+gem 'minitest-global_expectations'
