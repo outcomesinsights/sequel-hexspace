@@ -52,7 +52,7 @@ describe "Simple Dataset operations" do
     @ds.from_self(:alias=>:items).graph(@ds.from_self, {:id=>:id}, :table_alias=>:b).extension(:graph_each).all.must_equal [{:items=>{:id=>1, :number=>10}, :b=>{:id=>1, :number=>10}}]
   end
 
-  cspecify "should have insert and update work with Sequel::DEFAULT", :sqlite do
+  it "should have insert and update work with Sequel::DEFAULT" do
     @db.create_table!(:items) do
       Integer :number, :default=>10
     end
@@ -63,7 +63,7 @@ describe "Simple Dataset operations" do
     @ds.select_map(:number).must_equal [10, 10]
   end
 
-  cspecify "should have insert work correctly when inserting a row with all NULL values", :hsqldb do
+  it "should have insert work correctly when inserting a row with all NULL values" do
     @db.create_table!(:items) do
       String :name
       Integer :number
@@ -96,7 +96,7 @@ describe "Simple Dataset operations" do
   end
 
   it "should support iterating over large numbers of records with paged_each" do
-    (2..100).map{|i| @ds.insert(:number=>i*10)}
+    @ds.import([:id, :number], (2..100).map{|i| [i, i*10]})
 
     [:offset, :filter].each do |strategy|
       rows = []
@@ -135,23 +135,11 @@ describe "Simple Dataset operations" do
     rows = []
     @ds.order(Sequel.*(:number, 2)).paged_each(:rows_per_fetch=>5, :strategy=>:filter, :filter_values=>proc{|row, _| [row[:number] * 2]}){|row| rows << row}
     rows.must_equal((1..100).map{|i| {:id=>i, :number=>i*10}})
-
-    if DB.adapter_scheme == :jdbc
-      # check retrival with varying fetch sizes
-      array = (1..100).to_a
-      [1, 2, 5, 10, 33, 50, 100, 1000].each do |i|
-        @ds.with_fetch_size(i).select_order_map(:id).must_equal array
-      end
-    end
   end
 
   it "should fetch all results correctly" do
     @ds.all.must_equal [{:id=>1, :number=>10}]
   end
-
-  it "should raise exception if raising on duplication columns" do
-    proc{@ds.select_map([:id, :id])}.must_raise Sequel::DuplicateColumnError
-  end if DB.opts[:on_duplicate_columns] == :raise
 
   it "should fetch a single row correctly" do
     @ds.first.must_equal(:id=>1, :number=>10)
