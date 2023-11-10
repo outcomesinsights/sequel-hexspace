@@ -115,7 +115,7 @@ module Sequel
       end
 
       def literal_blob_append(sql, v)
-        sql << "to_binary('" << [v].pack("m*") << "', 'base64')"
+        sql << "to_binary('" << [v].pack("m*").gsub("\n", "") << "', 'base64')"
       end
 
       def literal_false
