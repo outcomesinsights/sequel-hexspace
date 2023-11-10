@@ -8,7 +8,7 @@ describe "Simple Dataset operations" do
       Integer :number
     end
     @ds = @db[:items]
-    @ds.insert(:number=>10)
+    @ds.insert(:id=>1, :number=>10)
   end
   after do
     @db.drop_table?(:items)
@@ -25,7 +25,7 @@ describe "Simple Dataset operations" do
 
   it "should have insert work correctly with static SQL" do
     @db["INSERT INTO #{@ds.literal(:items)} (#{@ds.literal(:number)}) VALUES (20)"].insert
-    @ds.filter(:id=>2).first[:number].must_equal 20
+    @ds.filter(:number=>20).first[:number].must_equal 20
   end
 
   it "should join correctly" do
