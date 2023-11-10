@@ -148,7 +148,7 @@ describe "Simple Dataset operations" do
   end
   
   it "should work correctly when returning from each without iterating over the whole result set" do
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     @ds.order(:id).each{|v| break v}.must_equal(:id=>1, :number=>10)
     @ds.reverse(:id).each{|v| break v}.must_equal(:id=>2, :number=>20)
   end
@@ -165,7 +165,7 @@ describe "Simple Dataset operations" do
   
   it "should fetch correctly with a limit" do
     @ds.order(:id).limit(2).all.must_equal [{:id=>1, :number=>10}]
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     @ds.order(:id).limit(1).all.must_equal [{:id=>1, :number=>10}]
     @ds.order(:id).limit(2).all.must_equal [{:id=>1, :number=>10}, {:id=>2, :number=>20}]
   end
@@ -173,7 +173,7 @@ describe "Simple Dataset operations" do
   it "should fetch correctly with a limit and offset" do
     @ds.order(:id).limit(2, 0).all.must_equal [{:id=>1, :number=>10}]
     @ds.order(:id).limit(2, 1).all.must_equal []
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     @ds.order(:id).limit(1, 1).all.must_equal [{:id=>2, :number=>20}]
     @ds.order(:id).limit(2, 0).all.must_equal [{:id=>1, :number=>10}, {:id=>2, :number=>20}]
     @ds.order(:id).limit(2, 1).all.must_equal [{:id=>2, :number=>20}]
@@ -182,7 +182,7 @@ describe "Simple Dataset operations" do
   it "should fetch correctly with just offset" do
     @ds.order(:id).offset(0).all.must_equal [{:id=>1, :number=>10}]
     @ds.order(:id).offset(1).all.must_equal []
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     @ds.order(:id).offset(0).all.must_equal [{:id=>1, :number=>10}, {:id=>2, :number=>20}]
     @ds.order(:id).offset(1).all.must_equal [{:id=>2, :number=>20}]
     @ds.order(:id).offset(2).all.must_equal []
@@ -191,7 +191,7 @@ describe "Simple Dataset operations" do
   it "should fetch correctly with a limit and offset using seperate methods" do
     @ds.order(:id).limit(2).offset(0).all.must_equal [{:id=>1, :number=>10}]
     @ds.order(:id).limit(2).offset(1).all.must_equal []
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     @ds.order(:id).limit(1).offset(1).all.must_equal [{:id=>2, :number=>20}]
     @ds.order(:id).limit(2).offset(0).all.must_equal [{:id=>1, :number=>10}, {:id=>2, :number=>20}]
     @ds.order(:id).limit(2).offset(1).all.must_equal [{:id=>2, :number=>20}]
@@ -206,7 +206,7 @@ describe "Simple Dataset operations" do
 
   it "should fetch correctly with a limit and offset for different combinations of from and join tables" do
     @db.create_table!(:items2){primary_key :id2; Integer :number2}
-    @db[:items2].insert(:number2=>10)
+    @db[:items2].insert(:id2=>1, :number2=>10)
     @ds.from(:items, :items2).order(:id).limit(2, 0).all.must_equal [{:id=>1, :number=>10, :id2=>1, :number2=>10}]
     @ds.from(Sequel[:items].as(:i), Sequel[:items2].as(:i2)).order(:id).limit(2, 0).all.must_equal [{:id=>1, :number=>10, :id2=>1, :number2=>10}]
     @ds.cross_join(:items2).order(:id).limit(2, 0).all.must_equal [{:id=>1, :number=>10, :id2=>1, :number2=>10}]
@@ -230,14 +230,14 @@ describe "Simple Dataset operations" do
   end
 
   it "should be orderable by column number" do
-    @ds.insert(:number=>20)
-    @ds.insert(:number=>10)
+    @ds.insert(:id=>2, :number=>20)
+    @ds.insert(:id=>3, :number=>10)
     @ds.order(2, 1).select_map([:id, :number]).must_equal [[1, 10], [3, 10], [2, 20]]
   end
 
   it "should fetch correctly with a limit in an IN subselect" do
     @ds.where(:id=>@ds.select(:id).order(:id).limit(2)).all.must_equal [{:id=>1, :number=>10}]
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     @ds.where(:id=>@ds.select(:id).order(:id).limit(1)).all.must_equal [{:id=>1, :number=>10}]
     @ds.where(:id=>@ds.select(:id).order(:id).limit(2)).order(:id).all.must_equal [{:id=>1, :number=>10}, {:id=>2, :number=>20}]
   end
@@ -245,14 +245,14 @@ describe "Simple Dataset operations" do
   it "should fetch correctly with a limit and offset in an IN subselect" do
     @ds.where(:id=>@ds.select(:id).order(:id).limit(2, 0)).all.must_equal [{:id=>1, :number=>10}]
     @ds.where(:id=>@ds.select(:id).order(:id).limit(2, 1)).all.must_equal []
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     @ds.where(:id=>@ds.select(:id).order(:id).limit(1, 1)).all.must_equal [{:id=>2, :number=>20}]
     @ds.where(:id=>@ds.select(:id).order(:id).limit(2, 0)).order(:id).all.must_equal [{:id=>1, :number=>10}, {:id=>2, :number=>20}]
     @ds.where(:id=>@ds.select(:id).order(:id).limit(2, 1)).all.must_equal [{:id=>2, :number=>20}]
   end
   
   it "should fetch correctly when using limit and offset in a from_self" do
-    @ds.insert(:number=>20)
+    @ds.insert(:id=>2, :number=>20)
     ds = @ds.order(:id).limit(1, 1).from_self
     ds.all.must_equal [{:number=>20, :id=>2}]
     ds.columns.must_equal [:id, :number]
@@ -260,8 +260,8 @@ describe "Simple Dataset operations" do
   end
 
   it "should fetch correctly when using nested limit and offset in a from_self" do
-    @ds.insert(:number=>20)
-    @ds.insert(:number=>30)
+    @ds.insert(:id=>2, :number=>20)
+    @ds.insert(:id=>3, :number=>30)
     ds = @ds.order(:id).limit(2, 1).from_self.reverse_order(:number).limit(1, 1)
     ds.all.must_equal [{:number=>20, :id=>2}]
     ds.columns.must_equal [:id, :number]
@@ -271,7 +271,7 @@ describe "Simple Dataset operations" do
     ds.all.must_equal []
     ds.columns.must_equal [:id, :number]
 
-    @ds.insert(:number=>40)
+    @ds.insert(:id=>4, :number=>40)
     ds = @ds.order(:id).limit(3, 1).from_self.reverse_order(:number).limit(2, 1).from_self.reverse_order(:id).limit(1, 1)
     ds.all.must_equal [{:number=>20, :id=>2}]
     ds.columns.must_equal [:id, :number]
@@ -295,7 +295,7 @@ describe "Simple Dataset operations" do
   it "should support the sql_comments extension" do
     ds = @ds.extension(:sql_comments).comment("Some\rComment\r\nHere")
     ds.all.must_equal [{:id=>1, :number=>10}]
-    ds.insert(:number=>20).must_equal 2
+    ds.insert(:id=>2, :number=>20)
     ds.update(:number=>30).must_equal 2
     ds.delete.must_equal 2
   end
