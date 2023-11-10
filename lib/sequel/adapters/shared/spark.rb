@@ -82,8 +82,8 @@ module Sequel
         :values
       end
 
-      def quote_identifiers?
-        false
+      def quoted_identifier_append(sql, name)
+        sql << '`' << name.to_s.gsub('`', '``') << '`'
       end
 
       def requires_sql_standard_datetimes?

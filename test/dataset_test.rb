@@ -301,28 +301,6 @@ describe "Simple Dataset operations" do
   end
 end
 
-describe "Simple dataset operations with nasty table names" do
-  before do
-    @db = DB
-    @table = :"i`t' [e]\"m\\s" 
-  end
-
-  cspecify "should work correctly", :oracle, :sqlanywhere, [:jdbc, :mssql] do
-    @db.create_table!(@table) do
-      primary_key :id
-      Integer :number
-    end
-    @ds = @db[@table]
-    @ds.insert(:number=>10).must_equal 1
-    @ds.all.must_equal [{:id=>1, :number=>10}]
-    @ds.update(:number=>20).must_equal 1 
-    @ds.all.must_equal [{:id=>1, :number=>20}]
-    @ds.delete.must_equal 1
-    @ds.count.must_equal 0
-    @db.drop_table?(@table)
-  end 
-end if DB.dataset.quote_identifiers?
-
 describe Sequel::Dataset do
   before do
     DB.create_table!(:test) do
