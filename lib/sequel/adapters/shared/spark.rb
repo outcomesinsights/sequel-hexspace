@@ -29,6 +29,12 @@ module Sequel
       def transaction(opts=nil)
         yield
       end
+
+      private
+
+      def type_literal_generic_string(column)
+        'String'
+      end
     end
 
     module DatasetMethods
