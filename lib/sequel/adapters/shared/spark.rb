@@ -48,6 +48,20 @@ module Sequel
     module DatasetMethods
       include UnmodifiedIdentifiers::DatasetMethods
 
+      # Emulate delete by selecting all rows except the ones being deleted
+      # into a new table, drop the current table, and rename the new
+      # table to the current table name.
+      #
+      # This is designed to minimize the changes to the tests, and is
+      # not recommended for production use.
+      def delete
+        table_name = first_source_table
+        tmp_name = literal(table_name) + "__sequel_delete_emulate"
+        db.create_table(tmp_name, :as=>invert)
+        db.drop_table(table_name)
+        db.rename_table(tmp_name, table_name)
+      end
+
       def quote_identifiers?
         false
       end
