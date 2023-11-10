@@ -349,7 +349,7 @@ describe Sequel::Dataset do
     end
   end
 
-  cspecify "should return the correct record count with an expression when using custom SQL with order", :mssql do
+  it "should return the correct record count with an expression when using custom SQL with order" do
     ds = @d.order(:name).with_sql(:select_sql)
     ds.count(:name).must_equal 0
     ds.count{:value}.must_equal 0
@@ -461,17 +461,12 @@ describe Sequel::Database do
     end
   end
 
-  cspecify "should properly escape binary data", [:odbc], [:jdbc, :hsqldb], :oracle do
+  it "should properly escape binary data" do
     DB.get(Sequel.cast(Sequel.blob("\1\2\3"), File).as(:a)).must_equal "\1\2\3"
   end
 
-  cspecify "should properly handle empty blobs", [:jdbc, :hsqldb], :oracle do
+  it "should properly handle empty blobs" do
     DB.get(Sequel.cast(Sequel.blob(""), File).as(:a)).must_equal ""
-  end
-
-  cspecify "should properly escape identifiers", :db2, :oracle, :sqlanywhere do
-    DB.create_table!(:"\\'\"[]"){Integer :id}
-    DB.drop_table(:"\\'\"[]")
   end
 
   it "should have a working table_exists?" do
@@ -543,7 +538,7 @@ describe "Simple Dataset operations" do
     @ds.exclude(:flag=>nil).map(:number).must_equal [1, 2]
   end
 
-  cspecify "should deal with boolean equality conditions correctly", :derby do
+  it "should deal with boolean equality conditions correctly" do
     @ds.filter(true=>:flag).map(:number).must_equal [1]
     @ds.filter(false=>:flag).map(:number).must_equal [2]
     @ds.filter(nil=>:flag).map(:number).must_equal []
@@ -552,44 +547,11 @@ describe "Simple Dataset operations" do
     @ds.exclude(nil=>:flag).map(:number).must_equal []
   end
 
-  cspecify "should have exclude_or_null work correctly", :mssql, :derby, :oracle, :db2, :sqlanywhere do
+  it "should have exclude_or_null work correctly" do
     @ds = @ds.extension(:exclude_or_null)
     @ds.exclude_or_null(true=>:flag).map(:number).must_equal [2, 3]
     @ds.exclude_or_null(false=>:flag).map(:number).must_equal [1, 3]
     @ds.exclude_or_null(nil=>:flag).map(:number).must_equal [1, 2, 3]
-  end
-end
-
-describe "Simple Dataset operations in transactions" do
-  before do
-    DB.create_table!(:items) do
-      primary_key :id
-      integer :number
-    end
-    @ds = DB[:items]
-  end
-  after do
-    DB.drop_table?(:items)
-  end
-
-  cspecify "should insert correctly with a primary key specified inside a transaction", :db2, :mssql do
-    DB.transaction do
-      @ds.insert(:id=>100, :number=>20)
-      @ds.count.must_equal 1
-      @ds.order(:id).all.must_equal [{:id=>100, :number=>20}]
-    end
-  end
-  
-  it "should have insert return primary key value inside a transaction" do
-    DB.transaction do
-      @ds.insert(:number=>20).must_equal 1
-      @ds.count.must_equal 1
-      @ds.order(:id).all.must_equal [{:id=>1, :number=>20}]
-    end
-  end
-  
-  it "should support for_update" do
-    DB.transaction{@ds.for_update.all.must_equal []}
   end
 end
 
@@ -713,15 +675,6 @@ if DB.dataset.supports_cte?
       @db[:t].with(:t, @ds.filter(:parent_id=>nil).select(:id)).order(:id).map(:id).must_equal [1, 2]
     end
     
-    cspecify "should give correct results for recursive WITH", :db2 do
-      ds = @db[:t].select(Sequel[:i].as(:id), Sequel[:pi].as(:parent_id)).with_recursive(:t, @ds.filter(:parent_id=>nil), @ds.join(:t, :i=>:parent_id).select(Sequel[:i1][:id], Sequel[:i1][:parent_id]), :args=>[:i, :pi]).order(:id)
-      ds.all.must_equal [{:parent_id=>nil, :id=>1}, {:parent_id=>nil, :id=>2}, {:parent_id=>1, :id=>3}, {:parent_id=>1, :id=>4}, {:parent_id=>3, :id=>5}, {:parent_id=>5, :id=>6}]
-      ps = @db[:t].select(Sequel[:i].as(:id), Sequel[:pi].as(:parent_id)).with_recursive(:t, @ds.filter(:parent_id=>:$n), @ds.join(:t, :i=>:parent_id).filter(Sequel[:t][:i]=>:parent_id).select(Sequel[:i1][:id], Sequel[:i1][:parent_id]), :args=>[:i, :pi]).order(:id).prepare(:select, :cte_sel)
-      ps.call(:n=>1).must_equal [{:id=>3, :parent_id=>1}, {:id=>4, :parent_id=>1}, {:id=>5, :parent_id=>3}, {:id=>6, :parent_id=>5}]
-      ps.call(:n=>3).must_equal [{:id=>5, :parent_id=>3}, {:id=>6, :parent_id=>5}]
-      ps.call(:n=>5).must_equal [{:id=>6, :parent_id=>5}]
-    end
-
     it "should support joining a dataset with a CTE" do
       @ds.inner_join(@db[:t].with(:t, @ds.filter(:parent_id=>nil)), :id => :id).select(Sequel[:i1][:id]).order(Sequel[:i1][:id]).map(:id).must_equal [1,2]
       @db[:t].with(:t, @ds).inner_join(@db[:s].with(:s, @ds.filter(:parent_id=>nil)), :id => :id).select(Sequel[:t][:id]).order(Sequel[:t][:id]).map(:id).must_equal [1,2]
@@ -739,233 +692,88 @@ if DB.dataset.supports_cte?
 
     it "should support using a CTE inside UNION/EXCEPT/INTERSECT" do
       @ds.union(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
-      if @ds.supports_intersect_except?
-        @ds.intersect(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
-        @ds.except(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal []
-      end
-    end
-
-    it "should give correct results for WITH AS [NOT] MATERIALIZED" do
-      @db[:t].with(:t, @ds, :materialized=>nil).order(:id).map(:id).must_equal [1, 2, 3, 4, 5, 6]
-      @db[:t].with(:t, @ds, :materialized=>true).order(:id).map(:id).must_equal [1, 2, 3, 4, 5, 6]
-      @db[:t].with(:t, @ds, :materialized=>false).order(:id).map(:id).must_equal [1, 2, 3, 4, 5, 6]
-    end if (DB.database_type == :postgres && DB.server_version >= 120000) || (DB.database_type == :sqlite && DB.sqlite_version > 33500)
-  end
-end
-
-if DB.dataset.supports_cte?(:insert) || DB.dataset.supports_cte?(:update) || DB.dataset.supports_cte?(:delete)
-  describe "Common Table Expressions" do
-    before do
-      @db = DB
-      @db.create_table!(:i1){Integer :id}
-      @ds = @db[:i1]
-      @ds2 = @ds.with(:t, @ds)
-      @ds.insert(:id=>1)
-      @ds.insert(:id=>2)
-    end
-    after do
-      @db.drop_table?(:i1)
-    end
-    
-    it "should give correct results for WITH in insert" do
-      @ds2.insert(@db[:t])
-      @ds.select_order_map(:id).must_equal [1, 1, 2, 2]
-    end if DB.dataset.supports_cte?(:insert)
-
-    it "should give correct results for WITH in update" do
-      @ds2.filter(:id=>@db[:t].select{max(id)}).update(:id=>Sequel.+(:id, 1))
-      @ds.select_order_map(:id).must_equal [1, 3]
-    end if DB.dataset.supports_cte?(:update)
-
-    it "should give correct results for WITH in delete" do
-      @ds2.filter(:id=>@db[:t].select{max(id)}).delete
-      @ds.select_order_map(:id).must_equal [1]
-    end if DB.dataset.supports_cte?(:delete)
-
-    it "should support a subselect in an subquery used for INSERT" do
-      @ds.insert([:id], @db[:foo].with(:foo, @ds.select{(id + 10).as(:id)}))
-      @ds.select_order_map(:id).must_equal [1,2,11,12]
+      @ds.intersect(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
+      @ds.except(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal []
     end
   end
 end
 
-if DB.dataset.supports_returning?(:insert)
-  describe "RETURNING clauses in INSERT" do
-    before do
-      @db = DB
-      @db.create_table!(:i1){Integer :id; Integer :foo}
-      @ds = @db[:i1]
-    end
-    after do
-      @db.drop_table?(:i1)
-    end
-    
-    it "should give correct results" do
-      h = {}
-      @ds.returning(:foo).insert(1, 2){|r| h = r}
-      h.must_equal(:foo=>2)
-      @ds.returning(:id).insert(3, 4){|r| h = r}
-      h.must_equal(:id=>3)
-      @ds.returning.insert(5, 6){|r| h = r}
-      h.must_equal(:id=>5, :foo=>6)
-      @ds.returning(Sequel[:id].as(:foo), Sequel[:foo].as(:id)).insert(7, 8){|r| h = r}
-      h.must_equal(:id=>8, :foo=>7)
-    end
+describe "Window Functions" do
+  before(:all) do
+    @db = DB
+    @db.create_table!(:i1){Integer :id; Integer :group_id; Integer :amount}
+    @ds = @db[:i1].order(:id)
+    @ds.insert(:id=>1, :group_id=>1, :amount=>1)
+    @ds.insert(:id=>2, :group_id=>1, :amount=>10)
+    @ds.insert(:id=>3, :group_id=>1, :amount=>100)
+    @ds.insert(:id=>4, :group_id=>2, :amount=>1000)
+    @ds.insert(:id=>5, :group_id=>2, :amount=>10000)
+    @ds.insert(:id=>6, :group_id=>2, :amount=>100000)
   end
-end
-
-if DB.dataset.supports_returning?(:update) # Assume DELETE support as well
-  describe "RETURNING clauses in UPDATE/DELETE" do
-    before do
-      @db = DB
-      @db.create_table!(:i1){Integer :id; Integer :foo}
-      @ds = @db[:i1]
-      @ds.insert(1, 2)
-    end
-    after do
-      @db.drop_table?(:i1)
-    end
-    
-    it "should give correct results" do
-      h = []
-      @ds.returning(:foo).update(:id=>Sequel.+(:id, 1), :foo=>Sequel.*(:foo, 2)){|r| h << r}
-      h.must_equal [{:foo=>4}]
-      h.clear
-      @ds.returning(:id).update(:id=>Sequel.+(:id, 1), :foo=>Sequel.*(:foo, 2)){|r| h << r}
-      h.must_equal [{:id=>3}]
-      h.clear
-      @ds.returning.update(:id=>Sequel.+(:id, 1), :foo=>Sequel.*(:foo, 2)){|r| h << r}
-      h.must_equal [{:id=>4, :foo=>16}]
-      h.clear
-      @ds.returning(Sequel[:id].as(:foo), Sequel[:foo].as(:id)).update(:id=>Sequel.+(:id, 1), :foo=>Sequel.*(:foo, 2)){|r| h << r}
-      h.must_equal [{:id=>32, :foo=>5}]
-      h.clear
-
-      @ds.returning.delete{|r| h << r}
-      h.must_equal [{:id=>5, :foo=>32}]
-      h.clear
-      @ds.returning.delete{|r| h << r}
-      h.must_equal []
-    end
+  after(:all) do
+    @db.drop_table?(:i1)
   end
-end
-
-if DB.dataset.supports_window_functions?
-  describe "Window Functions" do
-    before(:all) do
-      @db = DB
-      @db.create_table!(:i1){Integer :id; Integer :group_id; Integer :amount}
-      @ds = @db[:i1].order(:id)
-      @ds.insert(:id=>1, :group_id=>1, :amount=>1)
-      @ds.insert(:id=>2, :group_id=>1, :amount=>10)
-      @ds.insert(:id=>3, :group_id=>1, :amount=>100)
-      @ds.insert(:id=>4, :group_id=>2, :amount=>1000)
-      @ds.insert(:id=>5, :group_id=>2, :amount=>10000)
-      @ds.insert(:id=>6, :group_id=>2, :amount=>100000)
-    end
-    after(:all) do
-      @db.drop_table?(:i1)
-    end
+  
+  it "should give correct results for aggregate window functions" do
+    @ds.select(:id){sum(:amount).over(:partition=>:group_id).as(:sum)}.all.
+      must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
+    @ds.select(:id){sum(:amount).over.as(:sum)}.all.
+      must_equal [{:sum=>111111, :id=>1}, {:sum=>111111, :id=>2}, {:sum=>111111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
+  end
     
-    it "should give correct results for aggregate window functions" do
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id).as(:sum)}.all.
-        must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.select(:id){sum(:amount).over.as(:sum)}.all.
-        must_equal [{:sum=>111111, :id=>1}, {:sum=>111111, :id=>2}, {:sum=>111111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
-    end
+  it "should give correct results for ranking window functions with orders" do
+    @ds.select(:id){rank.function.over(:partition=>:group_id, :order=>:id).as(:rank)}.all.
+      must_equal [{:rank=>1, :id=>1}, {:rank=>2, :id=>2}, {:rank=>3, :id=>3}, {:rank=>1, :id=>4}, {:rank=>2, :id=>5}, {:rank=>3, :id=>6}]
+    @ds.select(:id){rank.function.over(:order=>id).as(:rank)}.all.
+      must_equal [{:rank=>1, :id=>1}, {:rank=>2, :id=>2}, {:rank=>3, :id=>3}, {:rank=>4, :id=>4}, {:rank=>5, :id=>5}, {:rank=>6, :id=>6}]
+  end
+    
+  it "should give correct results for aggregate window functions with orders" do
+    @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id).as(:sum)}.all.
+      must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:id).as(:sum)}.all.
+      must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1111, :id=>4}, {:sum=>11111, :id=>5}, {:sum=>111111, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>id.desc, :frame=>:rows).as(:sum)}.all.
+      must_equal [{:sum=>111, :id=>1}, {:sum=>110, :id=>2}, {:sum=>100, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>110000, :id=>5}, {:sum=>100000, :id=>6}]
+  end
+  
+  it "should give correct results for aggregate window functions with frames" do
+    @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id, :frame=>:all).as(:sum)}.all.
+      must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>:all).as(:sum)}.all.
+      must_equal [{:sum=>111111, :id=>1}, {:sum=>111111, :id=>2}, {:sum=>111111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
       
-    it "should give correct results for ranking window functions with orders" do
-      @ds.select(:id){rank.function.over(:partition=>:group_id, :order=>:id).as(:rank)}.all.
-        must_equal [{:rank=>1, :id=>1}, {:rank=>2, :id=>2}, {:rank=>3, :id=>3}, {:rank=>1, :id=>4}, {:rank=>2, :id=>5}, {:rank=>3, :id=>6}]
-      @ds.select(:id){rank.function.over(:order=>id).as(:rank)}.all.
-        must_equal [{:rank=>1, :id=>1}, {:rank=>2, :id=>2}, {:rank=>3, :id=>3}, {:rank=>4, :id=>4}, {:rank=>5, :id=>5}, {:rank=>6, :id=>6}]
-    end
-      
-    it "should give correct results for aggregate window functions with orders" do
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:order=>:id).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1111, :id=>4}, {:sum=>11111, :id=>5}, {:sum=>111111, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>id.desc, :frame=>:rows).as(:sum)}.all.
-        must_equal [{:sum=>111, :id=>1}, {:sum=>110, :id=>2}, {:sum=>100, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>110000, :id=>5}, {:sum=>100000, :id=>6}]
-    end
-    
-    it "should give correct results for aggregate window functions with frames" do
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id, :frame=>:all).as(:sum)}.all.
-        must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>:all).as(:sum)}.all.
-        must_equal [{:sum=>111111, :id=>1}, {:sum=>111111, :id=>2}, {:sum=>111111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
-        
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id, :frame=>:rows).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>:rows).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1111, :id=>4}, {:sum=>11111, :id=>5}, {:sum=>111111, :id=>6}]
-    end
+    @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id, :frame=>:rows).as(:sum)}.all.
+      must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>:rows).as(:sum)}.all.
+      must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1111, :id=>4}, {:sum=>11111, :id=>5}, {:sum=>111111, :id=>6}]
+  end
 
-    it "should give correct results for aggregate window functions with ranges" do
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id, :frame=>:range).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:group_id, :frame=>:range).as(:sum)}.all.
-        must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
-    end if DB.dataset.supports_window_function_frame_option?(:range)
+  it "should give correct results for aggregate window functions with ranges" do
+    @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id, :frame=>:range).as(:sum)}.all.
+      must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:group_id, :frame=>:range).as(:sum)}.all.
+      must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
+  end
 
-    it "should give correct results for aggregate window functions with groups" do
-      @ds.select(:id){sum(:amount).over(:partition=>:group_id, :order=>:id, :frame=>:groups).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>:groups).as(:sum)}.all.
-        must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
-    end if DB.dataset.supports_window_function_frame_option?(:groups)
+  it "should give correct results for aggregate window functions with offsets for ROWS" do
+    @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>1}).as(:sum)}.all.
+      must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>110, :id=>3}, {:sum=>1100, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>110000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>1, :end=>1}).as(:sum)}.all.
+      must_equal [{:sum=>11, :id=>1}, {:sum=>111, :id=>2}, {:sum=>1110, :id=>3}, {:sum=>11100, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>110000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>2, :end=>[1, :preceding]}).as(:sum)}.all.
+      must_equal [{:sum=>nil, :id=>1}, {:sum=>1, :id=>2}, {:sum=>11, :id=>3}, {:sum=>110, :id=>4}, {:sum=>1100, :id=>5}, {:sum=>11000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>[1, :following], :end=>2}).as(:sum)}.order(:id).all.
+      must_equal [{:sum=>110, :id=>1}, {:sum=>1100, :id=>2}, {:sum=>11000, :id=>3}, {:sum=>110000, :id=>4}, {:sum=>100000, :id=>5}, {:sum=>nil, :id=>6}]
+  end
 
-    if DB.dataset.supports_window_function_frame_option?(:offset)
-      it "should give correct results for aggregate window functions with offsets for ROWS" do
-        @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>1}).as(:sum)}.all.
-          must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>110, :id=>3}, {:sum=>1100, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>110000, :id=>6}]
-        @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>1, :end=>1}).as(:sum)}.all.
-          must_equal [{:sum=>11, :id=>1}, {:sum=>111, :id=>2}, {:sum=>1110, :id=>3}, {:sum=>11100, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>110000, :id=>6}]
-        @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>2, :end=>[1, :preceding]}).as(:sum)}.all.
-          must_equal [{:sum=>nil, :id=>1}, {:sum=>1, :id=>2}, {:sum=>11, :id=>3}, {:sum=>110, :id=>4}, {:sum=>1100, :id=>5}, {:sum=>11000, :id=>6}]
-        @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>[1, :following], :end=>2}).as(:sum)}.order(:id).all.
-          must_equal [{:sum=>110, :id=>1}, {:sum=>1100, :id=>2}, {:sum=>11000, :id=>3}, {:sum=>110000, :id=>4}, {:sum=>100000, :id=>5}, {:sum=>nil, :id=>6}]
-      end
-
-      cspecify "should give correct results for aggregate window functions with offsets for RANGES", :mssql, [proc{DB.sqlite_version < 32800}, :sqlite], [proc{DB.server_version < 110000}, :postgres] do
-        @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:range, :start=>1}).as(:sum)}.all.
-          must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
-        @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:range, :start=>0, :end=>1}).as(:sum)}.all.
-          must_equal [{:sum=>111111, :id=>1}, {:sum=>111111, :id=>2}, {:sum=>111111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
-        @ds.select(:id){sum(:amount).over(:order=>:amount, :frame=>{:type=>:range, :start=>100, :end=>1000}).as(:sum)}.all.
-          must_equal [{:sum=>1111, :id=>1}, {:sum=>1111, :id=>2}, {:sum=>1111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>10000, :id=>5}, {:sum=>100000, :id=>6}]
-      end if DB.dataset.supports_window_function_frame_option?(:range)
-
-      it "should give correct results for aggregate window functions with offsets for GROUPS" do
-        @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:groups, :start=>1}).as(:sum)}.all.
-          must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
-        @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:groups, :start=>0, :end=>1}).as(:sum)}.all.
-          must_equal [{:sum=>111111, :id=>1}, {:sum=>111111, :id=>2}, {:sum=>111111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
-      end if DB.dataset.supports_window_function_frame_option?(:groups)
-    end
-
-    it "should give correct results for aggregate window functions with exclusions" do
-      @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>:preceding, :exclude=>:current}).as(:sum)}.all.
-        must_equal [{:sum=>nil, :id=>1}, {:sum=>1, :id=>2}, {:sum=>11, :id=>3}, {:sum=>111, :id=>4}, {:sum=>1111, :id=>5}, {:sum=>11111, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:rows, :start=>:preceding, :exclude=>:group}).as(:sum)}.all.
-        must_equal [{:sum=>nil, :id=>1}, {:sum=>nil, :id=>2}, {:sum=>nil, :id=>3}, {:sum=>111, :id=>4}, {:sum=>111, :id=>5}, {:sum=>111, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:rows, :start=>:preceding, :exclude=>:ties}).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>10, :id=>2}, {:sum=>100, :id=>3}, {:sum=>1111, :id=>4}, {:sum=>10111, :id=>5}, {:sum=>100111, :id=>6}]
-      @ds.select(:id){sum(:amount).over(:order=>:id, :frame=>{:type=>:rows, :start=>:preceding, :exclude=>:no_others}).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1111, :id=>4}, {:sum=>11111, :id=>5}, {:sum=>111111, :id=>6}]
-    end if DB.dataset.supports_window_function_frame_option?(:exclude)
-
-    it "should give correct results for window functions" do
-      @ds.window(:win, :partition=>:group_id, :order=>:id).select(:id){sum(:amount).over(:window=>win, :frame=>:rows).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.window(:win, :partition=>:group_id).select(:id){sum(:amount).over(:window=>win, :order=>id, :frame=>:rows).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>11000, :id=>5}, {:sum=>111000, :id=>6}]
-      @ds.window(:win, {}).select(:id){sum(:amount).over(:window=>:win, :order=>id, :frame=>:rows).as(:sum)}.all.
-        must_equal [{:sum=>1, :id=>1}, {:sum=>11, :id=>2}, {:sum=>111, :id=>3}, {:sum=>1111, :id=>4}, {:sum=>11111, :id=>5}, {:sum=>111111, :id=>6}]
-      @ds.window(:win, :partition=>:group_id).select(:id){sum(:amount).over(:window=>:win, :order=>id, :frame=>:all).as(:sum)}.all.
-        must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
-    end if DB.dataset.supports_window_clause?
+  it "should give correct results for aggregate window functions with offsets for RANGES" do
+    @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:range, :start=>1}).as(:sum)}.all.
+      must_equal [{:sum=>111, :id=>1}, {:sum=>111, :id=>2}, {:sum=>111, :id=>3}, {:sum=>111111, :id=>4}, {:sum=>111111, :id=>5}, {:sum=>111111, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:group_id, :frame=>{:type=>:range, :start=>0, :end=>1}).as(:sum)}.all.
+      must_equal [{:sum=>111111, :id=>1}, {:sum=>111111, :id=>2}, {:sum=>111111, :id=>3}, {:sum=>111000, :id=>4}, {:sum=>111000, :id=>5}, {:sum=>111000, :id=>6}]
+    @ds.select(:id){sum(:amount).over(:order=>:amount, :frame=>{:type=>:range, :start=>100, :end=>1000}).as(:sum)}.all.
+      must_equal [{:sum=>1111, :id=>1}, {:sum=>1111, :id=>2}, {:sum=>1111, :id=>3}, {:sum=>1000, :id=>4}, {:sum=>10000, :id=>5}, {:sum=>100000, :id=>6}]
   end
 end
 
