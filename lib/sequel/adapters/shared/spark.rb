@@ -18,7 +18,7 @@ module Sequel
       def serial_primary_key_options
         # We could raise an exception here instead of just
         # ignoring the primary key setting.
-        {}
+        {:type=>Integer}
       end
  
       def supports_create_table_if_not_exists?
