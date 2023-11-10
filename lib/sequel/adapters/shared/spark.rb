@@ -78,6 +78,10 @@ module Sequel
         n
       end
 
+      def multi_insert_sql_strategy
+        :values
+      end
+
       def quote_identifiers?
         false
       end
