@@ -283,7 +283,7 @@ describe "Simple Dataset operations" do
 
   it "should support table aliases with column aliases" do
     DB.from(@ds.as(:i, [:x, :n])).first.must_equal(:x=>1, :n=>10)
-  end if DB.dataset.supports_derived_column_lists?
+  end
 
   it "should handle true/false properly" do
     @ds.filter(Sequel::TRUE).select_map(:number).must_equal [10]
@@ -576,10 +576,8 @@ describe "Dataset UNION, EXCEPT, and INTERSECT" do
 
   it "should give the correct results for simple UNION, EXCEPT, and INTERSECT" do
     @ds1.union(@ds2).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20 30'
-    if @ds1.supports_intersect_except?
-      @ds1.except(@ds2).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
-      @ds1.intersect(@ds2).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
-    end
+    @ds1.except(@ds2).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
+    @ds1.intersect(@ds2).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
   end
   
   it "should give the correct results for UNION, EXCEPT, and INTERSECT when used with ordering and limits and offsets" do
@@ -631,70 +629,66 @@ describe "Dataset UNION, EXCEPT, and INTERSECT" do
 
     @ds1.union(@ds2).union(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20 30 40'
     @ds1.union(@ds2.union(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20 30 40'
-    if @ds1.supports_intersect_except?
-      @ds1.union(@ds2).except(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'20 30'
-      @ds1.union(@ds2.except(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20 30'
-      @ds1.union(@ds2).intersect(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 '
-      @ds1.union(@ds2.intersect(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20'
-      
-      @ds1.except(@ds2).union(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20 40'
-      @ds1.except(@ds2.union(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
-      @ds1.except(@ds2).except(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
-      @ds1.except(@ds2.except(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20'
-      @ds1.except(@ds2).intersect(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w''
-      @ds1.except(@ds2.intersect(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
-      
-      @ds1.intersect(@ds2).union(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 40'
-      @ds1.intersect(@ds2.union(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
-      @ds1.intersect(@ds2).except(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w''
-      @ds1.intersect(@ds2.except(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w''
-      @ds1.intersect(@ds2).intersect(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
-      @ds1.intersect(@ds2.intersect(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
-    end
+    @ds1.union(@ds2).except(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'20 30'
+    @ds1.union(@ds2.except(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20 30'
+    @ds1.union(@ds2).intersect(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 '
+    @ds1.union(@ds2.intersect(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20'
+    
+    @ds1.except(@ds2).union(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20 40'
+    @ds1.except(@ds2.union(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
+    @ds1.except(@ds2).except(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
+    @ds1.except(@ds2.except(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 20'
+    @ds1.except(@ds2).intersect(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w''
+    @ds1.except(@ds2.intersect(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'20'
+    
+    @ds1.intersect(@ds2).union(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10 40'
+    @ds1.intersect(@ds2.union(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
+    @ds1.intersect(@ds2).except(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w''
+    @ds1.intersect(@ds2.except(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w''
+    @ds1.intersect(@ds2).intersect(@ds3).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
+    @ds1.intersect(@ds2.intersect(@ds3)).order(:number).map{|x| x[:number].to_s}.must_equal %w'10'
   end
 end
 
-if DB.dataset.supports_cte?
-  describe "Common Table Expressions" do
-    before(:all) do
-      @db = DB
-      @db.create_table!(:i1){Integer :id; Integer :parent_id}
-      @ds = @db[:i1]
-      @ds.insert(:id=>1)
-      @ds.insert(:id=>2)
-      @ds.insert(:id=>3, :parent_id=>1)
-      @ds.insert(:id=>4, :parent_id=>1)
-      @ds.insert(:id=>5, :parent_id=>3)
-      @ds.insert(:id=>6, :parent_id=>5)
-    end
-    after(:all) do
-      @db.drop_table?(:i1)
-    end
-    
-    it "should give correct results for WITH" do
-      @db[:t].with(:t, @ds.filter(:parent_id=>nil).select(:id)).order(:id).map(:id).must_equal [1, 2]
-    end
-    
-    it "should support joining a dataset with a CTE" do
-      @ds.inner_join(@db[:t].with(:t, @ds.filter(:parent_id=>nil)), :id => :id).select(Sequel[:i1][:id]).order(Sequel[:i1][:id]).map(:id).must_equal [1,2]
-      @db[:t].with(:t, @ds).inner_join(@db[:s].with(:s, @ds.filter(:parent_id=>nil)), :id => :id).select(Sequel[:t][:id]).order(Sequel[:t][:id]).map(:id).must_equal [1,2]
-    end
+describe "Common Table Expressions" do
+  before(:all) do
+    @db = DB
+    @db.create_table!(:i1){Integer :id; Integer :parent_id}
+    @ds = @db[:i1]
+    @ds.insert(:id=>1)
+    @ds.insert(:id=>2)
+    @ds.insert(:id=>3, :parent_id=>1)
+    @ds.insert(:id=>4, :parent_id=>1)
+    @ds.insert(:id=>5, :parent_id=>3)
+    @ds.insert(:id=>6, :parent_id=>5)
+  end
+  after(:all) do
+    @db.drop_table?(:i1)
+  end
+  
+  it "should give correct results for WITH" do
+    @db[:t].with(:t, @ds.filter(:parent_id=>nil).select(:id)).order(:id).map(:id).must_equal [1, 2]
+  end
+  
+  it "should support joining a dataset with a CTE" do
+    @ds.inner_join(@db[:t].with(:t, @ds.filter(:parent_id=>nil)), :id => :id).select(Sequel[:i1][:id]).order(Sequel[:i1][:id]).map(:id).must_equal [1,2]
+    @db[:t].with(:t, @ds).inner_join(@db[:s].with(:s, @ds.filter(:parent_id=>nil)), :id => :id).select(Sequel[:t][:id]).order(Sequel[:t][:id]).map(:id).must_equal [1,2]
+  end
 
-    it "should support a subselect in the FROM clause with a CTE" do
-      @ds.from(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
-      @db[:t].with(:t, @ds).from_self.select_order_map(:id).must_equal [1,2,3,4,5,6]
-    end
+  it "should support a subselect in the FROM clause with a CTE" do
+    @ds.from(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
+    @db[:t].with(:t, @ds).from_self.select_order_map(:id).must_equal [1,2,3,4,5,6]
+  end
 
-    it "should support using a CTE inside a CTE" do
-      @db[:s].with(:s, @db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
-      @db[:s].with_recursive(:s, @db[:t].with(:t, @ds), @db[:t2].with(:t2, @ds)).select_order_map(:id).must_equal [1,1,2,2,3,3,4,4,5,5,6,6]
-    end
+  it "should support using a CTE inside a CTE" do
+    @db[:s].with(:s, @db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
+    @db[:s].with_recursive(:s, @db[:t].with(:t, @ds), @db[:t2].with(:t2, @ds)).select_order_map(:id).must_equal [1,1,2,2,3,3,4,4,5,5,6,6]
+  end
 
-    it "should support using a CTE inside UNION/EXCEPT/INTERSECT" do
-      @ds.union(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
-      @ds.intersect(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
-      @ds.except(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal []
-    end
+  it "should support using a CTE inside UNION/EXCEPT/INTERSECT" do
+    @ds.union(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
+    @ds.intersect(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
+    @ds.except(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal []
   end
 end
 
@@ -1191,10 +1185,9 @@ describe "Sequel::Dataset DSL support" do
     end
   end
   
-  cspecify "should work with bitwise shift operators", :derby do
+  it "should work with bitwise shift operators" do
     @ds.insert(3, 2)
     b = Sequel[:b]
-    b = b.cast(:integer) if @db.database_type == :postgres
     @ds.get{a.sql_number << b}.to_i.must_equal 12
     @ds.get{a.sql_number >> b}.to_i.must_equal 0
     @ds.get{a.sql_number << b << 1}.to_i.must_equal 24
@@ -1308,7 +1301,7 @@ describe "Sequel::Dataset DSL support" do
     @ds.filter(:a=>eval('(20...)')).all.must_equal [{:a=>20, :b=>10}]
     @ds.filter(:a=>eval('(20..)')).all.must_equal [{:a=>20, :b=>10}]
     @ds.filter(:a=>eval('(10..)')).all.must_equal [{:a=>20, :b=>10}]
-  end if RUBY_VERSION >= '2.6'
+  end
   
   it "should work with startless ranges as hash values" do
     @ds.insert(20, 10)
@@ -1320,7 +1313,7 @@ describe "Sequel::Dataset DSL support" do
     @ds.filter(:a=>eval('(...10)')).all.must_equal []
 
     @ds.filter(:a=>eval('nil..nil')).all.must_equal [{:a=>20, :b=>10}]
-  end if RUBY_VERSION >= '2.7'
+  end
   
   it "should work with CASE statements" do
     @ds.insert(20, 10)
@@ -1377,14 +1370,11 @@ describe "Sequel::Dataset DSL support" do
     @ds.filter([:a, :b]=>[]).all.must_equal []
     @ds.exclude([:a, :b]=>[]).all.must_equal []
 
-    unless Sequel.guarded?(:mssql, :oracle, :db2, :sqlanywhere)
-      # Some databases don't like boolean results in the select list
-      pr = proc{|r| r.is_a?(Integer) ? (r != 0) : r}
-      pr[@ds.get(Sequel.expr(:a=>[]))].must_be_nil
-      pr[@ds.get(~Sequel.expr(:a=>[]))].must_be_nil
-      pr[@ds.get(Sequel.expr([:a, :b]=>[]))].must_be_nil
-      pr[@ds.get(~Sequel.expr([:a, :b]=>[]))].must_be_nil
-    end
+    pr = proc{|r| r.is_a?(Integer) ? (r != 0) : r}
+    pr[@ds.get(Sequel.expr(:a=>[]))].must_be_nil
+    pr[@ds.get(~Sequel.expr(:a=>[]))].must_be_nil
+    pr[@ds.get(Sequel.expr([:a, :b]=>[]))].must_be_nil
+    pr[@ds.get(~Sequel.expr([:a, :b]=>[]))].must_be_nil
   end
   
   it "should work empty arrays with nulls" do
@@ -1395,14 +1385,11 @@ describe "Sequel::Dataset DSL support" do
     ds.filter([:a, :b]=>[]).all.must_equal []
     ds.exclude([:a, :b]=>[]).all.must_equal [{:a=>nil, :b=>nil}]
 
-    unless Sequel.guarded?(:mssql, :oracle, :db2, :sqlanywhere)
-      # Some databases don't like boolean results in the select list
-      pr = proc{|r| r.is_a?(Integer) ? (r != 0) : r}
-      pr[ds.get(Sequel.expr(:a=>[]))].must_equal false
-      pr[ds.get(~Sequel.expr(:a=>[]))].must_equal true
-      pr[ds.get(Sequel.expr([:a, :b]=>[]))].must_equal false
-      pr[ds.get(~Sequel.expr([:a, :b]=>[]))].must_equal true
-    end
+    pr = proc{|r| r.is_a?(Integer) ? (r != 0) : r}
+    pr[ds.get(Sequel.expr(:a=>[]))].must_equal false
+    pr[ds.get(~Sequel.expr(:a=>[]))].must_equal true
+    pr[ds.get(Sequel.expr([:a, :b]=>[]))].must_equal false
+    pr[ds.get(~Sequel.expr([:a, :b]=>[]))].must_equal true
   end
 
   it "should work multiple conditions" do
@@ -1448,10 +1435,6 @@ describe "Dataset string methods" do
     @db = DB
     csc = {}
     cic = {}
-    if @db.database_type == :mssql
-      csc[:collate] = 'Latin1_General_CS_AS'
-      cic[:collate] = 'Latin1_General_CI_AS'
-    end
     @db.create_table!(:a) do
       String :a, csc
       String :b, cic
@@ -1572,44 +1555,42 @@ describe "Dataset string methods" do
     @ds.filter(Sequel.expr(:b).escaped_ilike('?_', 'Bar%')).select_order_map(:b).must_equal ['bar%.']
     @ds.filter(Sequel.expr(:b).escaped_ilike('?%', 'Bar%')).select_order_map(:b).must_equal ['bar%', 'bar%.', 'bar%..']
   end
-  
-  if DB.dataset.supports_regexp?
-    it "#like with regexp return matching rows" do
-      @ds.insert('foo', 'bar')
-      @ds.filter(Sequel.expr(:a).like(/fo/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.filter(Sequel.expr(:a).like(/fo$/)).all.must_equal []
-      @ds.filter(Sequel.expr(:a).like(/fo/, /ar/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.exclude(Sequel.expr(:a).like(/fo/)).all.must_equal []
-      @ds.exclude(Sequel.expr(:a).like(/fo$/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.exclude(Sequel.expr(:a).like(/fo/, /ar/)).all.must_equal []
-    end
-    
-    it "#like with regexp should be case sensitive if regexp is case sensitive" do
-      @ds.insert('foo', 'bar')
-      @ds.filter(Sequel.expr(:a).like(/Fo/)).all.must_equal []
-      @ds.filter(Sequel.expr(:b).like(/baR/)).all.must_equal []
-      @ds.filter(Sequel.expr(:a).like(/FOO/, /BAR/)).all.must_equal []
-      @ds.exclude(Sequel.expr(:a).like(/Fo/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.exclude(Sequel.expr(:b).like(/baR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.exclude(Sequel.expr(:a).like(/FOO/, /BAR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
 
-      @ds.filter(Sequel.expr(:a).like(/Fo/i)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.filter(Sequel.expr(:b).like(/baR/i)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.filter(Sequel.expr(:a).like(/FOO/i, /BAR/i)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.exclude(Sequel.expr(:a).like(/Fo/i)).all.must_equal []
-      @ds.exclude(Sequel.expr(:b).like(/baR/i)).all.must_equal []
-      @ds.exclude(Sequel.expr(:a).like(/FOO/i, /BAR/i)).all.must_equal []
-    end
-    
-    it "#ilike with regexp should return matching rows, in a case insensitive manner" do
-      @ds.insert('foo', 'bar')
-      @ds.filter(Sequel.expr(:a).ilike(/Fo/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.filter(Sequel.expr(:b).ilike(/baR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.filter(Sequel.expr(:a).ilike(/FOO/, /BAR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
-      @ds.exclude(Sequel.expr(:a).ilike(/Fo/)).all.must_equal []
-      @ds.exclude(Sequel.expr(:b).ilike(/baR/)).all.must_equal []
-      @ds.exclude(Sequel.expr(:a).ilike(/FOO/, /BAR/)).all.must_equal []
-    end
+  it "#like with regexp return matching rows" do
+    @ds.insert('foo', 'bar')
+    @ds.filter(Sequel.expr(:a).like(/fo/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.filter(Sequel.expr(:a).like(/fo$/)).all.must_equal []
+    @ds.filter(Sequel.expr(:a).like(/fo/, /ar/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.exclude(Sequel.expr(:a).like(/fo/)).all.must_equal []
+    @ds.exclude(Sequel.expr(:a).like(/fo$/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.exclude(Sequel.expr(:a).like(/fo/, /ar/)).all.must_equal []
+  end
+  
+  it "#like with regexp should be case sensitive if regexp is case sensitive" do
+    @ds.insert('foo', 'bar')
+    @ds.filter(Sequel.expr(:a).like(/Fo/)).all.must_equal []
+    @ds.filter(Sequel.expr(:b).like(/baR/)).all.must_equal []
+    @ds.filter(Sequel.expr(:a).like(/FOO/, /BAR/)).all.must_equal []
+    @ds.exclude(Sequel.expr(:a).like(/Fo/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.exclude(Sequel.expr(:b).like(/baR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.exclude(Sequel.expr(:a).like(/FOO/, /BAR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+
+    @ds.filter(Sequel.expr(:a).like(/Fo/i)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.filter(Sequel.expr(:b).like(/baR/i)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.filter(Sequel.expr(:a).like(/FOO/i, /BAR/i)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.exclude(Sequel.expr(:a).like(/Fo/i)).all.must_equal []
+    @ds.exclude(Sequel.expr(:b).like(/baR/i)).all.must_equal []
+    @ds.exclude(Sequel.expr(:a).like(/FOO/i, /BAR/i)).all.must_equal []
+  end
+  
+  it "#ilike with regexp should return matching rows, in a case insensitive manner" do
+    @ds.insert('foo', 'bar')
+    @ds.filter(Sequel.expr(:a).ilike(/Fo/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.filter(Sequel.expr(:b).ilike(/baR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.filter(Sequel.expr(:a).ilike(/FOO/, /BAR/)).all.must_equal [{:a=>'foo', :b=>'bar'}]
+    @ds.exclude(Sequel.expr(:a).ilike(/Fo/)).all.must_equal []
+    @ds.exclude(Sequel.expr(:b).ilike(/baR/)).all.must_equal []
+    @ds.exclude(Sequel.expr(:a).ilike(/FOO/, /BAR/)).all.must_equal []
   end
   
   it "should work with strings created with Sequel.join" do
