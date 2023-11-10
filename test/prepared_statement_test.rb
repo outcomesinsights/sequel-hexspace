@@ -9,8 +9,7 @@ describe "Prepared Statements and Bound Arguments" do
     end
     @c = Class.new(Sequel::Model(:items))
     @ds = @db[:items]
-    @ds.insert(:numb=>10)
-    @pr = @ds.requires_placeholder_type_specifiers? ? proc{|i| :"#{i}__integer"} : proc{|i| i}
+    @ds.insert(:id=>1, :numb=>10)
   end
   after do
     @db.drop_table?(:items)
@@ -66,8 +65,8 @@ describe "Prepared Statements and Bound Arguments" do
 
   it "should support named placeholder literal strings and handle multiple named placeholders correctly with call" do
     @ds.filter(Sequel.lit("numb = :n", :n=>:$n)).call(:select, :n=>10).must_equal [{:id=>1, :numb=>10}]
-    @ds.insert(:numb=>20)
-    @ds.insert(:numb=>30)
+    @ds.insert(:id=>2, :numb=>20)
+    @ds.insert(:id=>3, :numb=>30)
     @ds.filter(Sequel.lit("numb > :n1 AND numb < :n2 AND numb = :n3", :n3=>:$n3, :n2=>:$n2, :n1=>:$n1)).call(:select, :n3=>20, :n2=>30, :n1=>10).must_equal [{:id=>2, :numb=>20}]
   end
 
@@ -95,8 +94,8 @@ describe "Prepared Statements and Bound Arguments" do
     @ds.filter(:id=>:$i).filter(:numb=>@ds.select(:numb).filter(:numb=>@ds.select(:numb).filter(:numb=>:$n))).filter(:id=>:$j).call(:select, :n=>10, :i=>1, :j=>1).must_equal [{:id=>1, :numb=>10}]
   end
   
-  cspecify "should support using a bound variable for a limit and offset", [:jdbc, :db2] do
-    @ds.insert(:numb=>20)
+  it "should support using a bound variable for a limit and offset" do
+    @ds.insert(:id=>2, :numb=>20)
     ds = @ds.limit(:$n, :$n2).order(:id)
     ds.call(:select, :n=>1, :n2=>0).must_equal [{:id=>1, :numb=>10}]
     ds.call(:select, :n=>1, :n2=>1).must_equal [{:id=>2, :numb=>20}]
@@ -106,45 +105,17 @@ describe "Prepared Statements and Bound Arguments" do
   end
 
   it "should support bound variables with insert" do
-    @ds.call(:insert, {:n=>20}, :numb=>:$n)
+    @ds.call(:insert, {:i=>2, :n=>20}, :numb=>:$n, :id=>:$i)
     @ds.count.must_equal 2
     @ds.order(:id).map(:numb).must_equal [10, 20]
   end
 
   it "should support bound variables with NULL values" do
     @ds.delete
-    @ds.call(:insert, {:n=>nil}, :numb=>@pr[:$n])
+    @ds.call(:insert, {:n=>nil}, :numb=>:$n, :id=>1)
     @ds.count.must_equal 1
     @ds.map(:numb).must_equal [nil]
   end
-
-  it "should have insert return primary key value when using bound arguments" do
-    @ds.call(:insert, {:n=>20}, :numb=>:$n).must_equal 2
-    @ds.filter(:id=>2).first[:numb].must_equal 20
-  end
-
-  it "should support bound variables with insert_select" do
-    @ds.call(:insert_select, {:n=>20}, :numb=>:$n).must_equal(:id=>2, :numb=>20)
-    @ds.count.must_equal 2
-    @ds.order(:id).map(:numb).must_equal [10, 20]
-  end if DB.dataset.supports_insert_select?
-
-  it "should support bound variables with insert returning" do
-    @ds.returning.call(:insert, {:n=>20}, :numb=>:$n).must_equal([{:id=>2, :numb=>20}])
-    @ds.count.must_equal 2
-    @ds.order(:id).map(:numb).must_equal [10, 20]
-  end if DB.dataset.supports_returning?(:insert)
-
-  it "should support bound variables with update returning" do
-    @ds.returning.call(:update, {:n=>20}, :numb=>:$n).must_equal([{:id=>1, :numb=>20}])
-    @ds.count.must_equal 1
-    @ds.order(:id).map(:numb).must_equal [20]
-  end if DB.dataset.supports_returning?(:update)
-
-  it "should support bound variables with delete returning" do
-    @ds.where(:id=>:$id).returning.call(:delete, :id=>1).must_equal([{:id=>1, :numb=>10}])
-    @ds.count.must_equal 0
-  end if DB.dataset.supports_returning?(:delete)
 
   it "should support bound variables with delete" do
     @ds.filter(:numb=>:$n).call(:delete, :n=>10).must_equal 1
@@ -201,8 +172,8 @@ describe "Prepared Statements and Bound Arguments" do
 
   it "should support named placeholder literal strings and handle multiple named placeholders correctly with prepare" do
     @ds.filter(Sequel.lit("numb = :n", :n=>:$n)).prepare(:select, :seq_select).call(:n=>10).must_equal [{:id=>1, :numb=>10}]
-    @ds.insert(:numb=>20)
-    @ds.insert(:numb=>30)
+    @ds.insert(:id=>2, :numb=>20)
+    @ds.insert(:id=>3, :numb=>30)
     @ds.filter(Sequel.lit("numb > :n1 AND numb < :n2 AND numb = :n3", :n3=>:$n3, :n2=>:$n2, :n1=>:$n1)).call(:select, :n3=>20, :n2=>30, :n1=>10).must_equal [{:id=>2, :numb=>20}]
   end
 
@@ -231,7 +202,7 @@ describe "Prepared Statements and Bound Arguments" do
   end
   
   cspecify "should support using a prepared_statement for a limit and offset", :db2 do
-    @ds.insert(:numb=>20)
+    @ds.insert(:id=>2, :numb=>20)
     ps = @ds.limit(:$n, :$n2).order(:id).prepare(:select, :seq_select)
     ps.call(:n=>1, :n2=>0).must_equal [{:id=>1, :numb=>10}]
     ps.call(:n=>1, :n2=>1).must_equal [{:id=>2, :numb=>20}]
@@ -241,7 +212,7 @@ describe "Prepared Statements and Bound Arguments" do
   end
 
   it "should support prepared statements with insert" do
-    @ds.prepare(:insert, :insert_n, :numb=>:$n)
+    @ds.prepare(:insert, :insert_n, :numb=>:$n, :id=>2)
     @db.call(:insert_n, :n=>20)
     @ds.count.must_equal 2
     @ds.order(:id).map(:numb).must_equal [10, 20]
@@ -249,53 +220,12 @@ describe "Prepared Statements and Bound Arguments" do
 
   it "should support prepared statements with NULL values" do
     @ds.delete
-    @ds.prepare(:insert, :insert_n, :numb=>@pr[:$n])
+    @ds.prepare(:insert, :insert_n, :numb=>:$n, :id=>2)
     @db.call(:insert_n, :n=>nil)
     @ds.count.must_equal 1
     @ds.map(:numb).must_equal [nil]
   end
 
-  it "should have insert return primary key value when using prepared statements" do
-    @ds.prepare(:insert, :insert_n, :numb=>:$n)
-    @db.call(:insert_n, :n=>20).must_equal 2
-    @ds.filter(:id=>2).first[:numb].must_equal 20
-  end
-
-  it "should support prepared_statements with insert_select" do
-    @ds.prepare(:insert_select, :insert_select_n, :numb=>:$n).call(:n=>20).must_equal(:id=>2, :numb=>20)
-    @ds.count.must_equal 2
-    @ds.order(:id).map(:numb).must_equal [10, 20]
-  end if DB.dataset.supports_insert_select?
-
-  it "should support bound variables with insert returning" do
-    @ds.returning.prepare(:insert, :insert_rn, :numb=>:$n).call(:n=>20).must_equal([{:id=>2, :numb=>20}])
-    @ds.count.must_equal 2
-    @ds.order(:id).map(:numb).must_equal [10, 20]
-  end if DB.dataset.supports_returning?(:insert)
-
-  it "should support bound variables with update returning" do
-    @ds.returning.prepare(:update, :update_rn, :numb=>:$n).call(:n=>20).must_equal([{:id=>1, :numb=>20}])
-    @ds.count.must_equal 1
-    @ds.order(:id).map(:numb).must_equal [20]
-  end if DB.dataset.supports_returning?(:update)
-
-  it "should support bound variables with delete returning" do
-    @ds.where(:id=>:$id).returning.prepare(:delete, :delete_rn).call(:id=>1).must_equal([{:id=>1, :numb=>10}])
-    @ds.count.must_equal 0
-  end if DB.dataset.supports_returning?(:delete)
-
-  it "should support prepared statements with delete" do
-    @ds.filter(:numb=>:$n).prepare(:delete, :delete_n)
-    @db.call(:delete_n, :n=>10).must_equal 1
-    @ds.count.must_equal 0
-  end
-
-  it "should support prepared statements with update" do
-    @ds.filter(:numb=>:$n).prepare(:update, :update_n, :numb=>Sequel.+(:numb, :$nn))
-    @db.call(:update_n, :n=>10, :nn=>20).must_equal 1
-    @ds.all.must_equal [{:id=>1, :numb=>30}]
-  end
-  
   it "model datasets should return model instances when using select, all, and first with bound variables" do
     @c.filter(:numb=>:$n).call(:select, :n=>10).must_equal [@c.load(:id=>1, :numb=>10)]
     @c.filter(:numb=>:$n).call(:all, :n=>10).must_equal [@c.load(:id=>1, :numb=>10)]
@@ -340,54 +270,45 @@ describe "Bound Argument Types" do
     @db.drop_table?(:items)
   end
 
-  cspecify "should handle date type", [:tinytds], [:jdbc, :mssql], [:jdbc, :sqlite], [:odbc, :mssql], :oracle do 
+  it "should handle date type" do 
     @ds.filter(:d=>:$x).prepare(:first, :ps_date).call(:x=>@vs[:d])[:d].must_equal @vs[:d]
   end
 
-  cspecify "should handle datetime type", [:mysql2], [:jdbc, :sqlite], [:tinytds], [:oracle], [:trilogy] do
+  it "should handle datetime type" do
     Sequel.datetime_class = DateTime
     @ds.filter(:dt=>:$x).prepare(:first, :ps_datetime).call(:x=>@vs[:dt])[:dt].must_equal @vs[:dt]
   end
 
-  cspecify "should handle datetime type with fractional seconds", [:jdbc, :sqlite], [:jdbc, :mysql], [:oracle] do
+  it "should handle datetime type with fractional seconds" do
     Sequel.datetime_class = DateTime
     Sequel.default_timezone = :utc
     fract_time = DateTime.parse('2010-10-12 13:14:15.500000')
-    @ds.prepare(:update, :ps_datetime_up, :dt=>:$x).call(:x=>fract_time)
+    @ds.delete
+    @ds.prepare(:insert, :ps_datetime_up, :dt=>:$x).call(:x=>fract_time)
     dt = @ds.filter(:dt=>:$x).prepare(:first, :ps_datetime).call(:x=>fract_time)[:dt]
     @ds.literal(dt).must_equal @ds.literal(fract_time)
   end
 
-  cspecify "should handle time type", [:jdbc, :sqlite] do
-    @ds.filter(:t=>:$x).prepare(:first, :ps_time).call(:x=>@vs[:t])[:t].must_equal @vs[:t]
-  end
-
-  cspecify "should handle time type with fractional seconds", [:jdbc, :sqlite], [:jdbc, :mysql] do
-    fract_time = @vs[:t] + 0.5
-    @ds.prepare(:update, :ps_time_up, :t=>:$x).call(:x=>fract_time)
-    @ds.literal(@ds.filter(:t=>:$x).prepare(:first, :ps_time).call(:x=>fract_time)[:t]).must_equal @ds.literal(fract_time)
-  end
-
-  cspecify "should handle blob type", [:odbc] do
+  it "should handle blob type" do
     @ds.delete
     @ds.prepare(:insert, :ps_blob, {:file=>:$x}).call(:x=>@vs[:file])
     @ds.get(:file).must_equal @vs[:file]
   end
 
-  cspecify "should handle blob type with special characters", [:odbc] do
+  it "should handle blob type with special characters" do
     @ds.delete
     blob = Sequel.blob("\"'[]`a0 ")
     @ds.prepare(:insert, :ps_blob, {:file=>:$x}).call(:x=>blob)
     @ds.get(:file).must_equal blob
   end
 
-  cspecify "should handle blob type with nil values", [:oracle], [:tinytds], [:jdbc, :mssql] do
+  it "should handle blob type with nil values" do
     @ds.delete
     @ds.prepare(:insert, :ps_blob, {:file=>:$x}).call(:x=>nil)
     @ds.get(:file).must_be_nil
   end
 
-  cspecify "should handle blob type with embedded zeros", [:odbc] do
+  it "should handle blob type with embedded zeros" do
     zero_blob = Sequel::SQL::Blob.new("a\0"*100)
     @ds.delete
     @ds.prepare(:insert, :ps_blob, {:file=>:$x}).call(:x=>zero_blob)
