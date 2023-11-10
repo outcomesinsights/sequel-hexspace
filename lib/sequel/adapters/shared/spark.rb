@@ -111,6 +111,10 @@ module Sequel
         "true"
       end
 
+      def supports_cte?(type=:select)
+        type == :select
+      end
+
     end
   end
 end
