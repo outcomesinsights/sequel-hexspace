@@ -55,11 +55,27 @@ module Sequel
       # This is designed to minimize the changes to the tests, and is
       # not recommended for production use.
       def delete
+        n = count
         table_name = first_source_table
         tmp_name = literal(table_name) + "__sequel_delete_emulate"
-        db.create_table(tmp_name, :as=>invert)
+        db.create_table(tmp_name, :as=>select_all.invert)
         db.drop_table(table_name)
         db.rename_table(tmp_name, table_name)
+        n
+      end
+
+      def update(columns)
+        n = count
+        table_name = first_source_table
+        tmp_name = literal(table_name) + "__sequel_update_emulate"
+        db.create_table(tmp_name, :as=>select_all.invert)
+        updated_cols = columns.keys
+        other_cols = db.from(table_name).columns - updated_cols
+        updated_vals = columns.values
+        db.from(tmp_name).insert([*updated_cols, *other_cols], select(*updated_vals, *other_cols))
+        db.drop_table(table_name)
+        db.rename_table(tmp_name, table_name)
+        n
       end
 
       def quote_identifiers?
