@@ -32,6 +32,10 @@ module Sequel
 
       private
 
+      def type_literal_generic_file(column)
+        'binary'
+      end
+
       def type_literal_generic_float(column)
         'float'
       end
@@ -51,6 +55,23 @@ module Sequel
       def requires_sql_standard_datetimes?
         true
       end
+
+      def insert_supports_empty_values? 
+        false
+      end
+
+      def literal_blob_append(sql, v)
+        sql << "to_binary('" << [v].pack("m*") << "', 'base64')"
+      end
+
+      def literal_false
+        "false"
+      end
+
+      def literal_true
+        "true"
+      end
+
     end
   end
 end
