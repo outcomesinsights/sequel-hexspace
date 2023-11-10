@@ -797,7 +797,7 @@ describe Sequel::SQL::Constants do
     @db.drop_table?(:constants)
   end
   
-  cspecify "should have working CURRENT_DATE", [:jdbc, :sqlite], [:odbc, :mssql], :oracle do
+  it "should have working CURRENT_DATE" do
     @db.create_table!(:constants){Date :d}
     @ds.insert(:d=>Sequel::CURRENT_DATE)
     d = @c2[@ds.get(:d)]
@@ -805,19 +805,13 @@ describe Sequel::SQL::Constants do
     d.to_s.must_equal Date.today.to_s
   end
 
-  cspecify "should have working CURRENT_TIME", [:jdbc, :sqlite], [:mysql2], [:tinytds], [:ado], [:trilogy] do
-    @db.create_table!(:constants){Time :t, :only_time=>true}
-    @ds.insert(:t=>Sequel::CURRENT_TIME)
-    (Time.now - @c[@ds.get(:t)]).must_be_close_to 0, 60
-  end
-
-  cspecify "should have working CURRENT_TIMESTAMP", [:jdbc, :sqlite] do
+  it "should have working CURRENT_TIMESTAMP" do
     @db.create_table!(:constants){DateTime :ts}
     @ds.insert(:ts=>Sequel::CURRENT_TIMESTAMP)
     (Time.now - @c[@ds.get(:ts)]).must_be_close_to 0, 60
   end
 
-  cspecify "should have working CURRENT_TIMESTAMP when used as a column default", [:jdbc, :sqlite] do
+  it "should have working CURRENT_TIMESTAMP when used as a column default" do
     @db.create_table!(:constants){DateTime :ts, :default=>Sequel::CURRENT_TIMESTAMP}
     @ds.insert
     (Time.now - @c[@ds.get(:ts)]).must_be_close_to 0, 60
@@ -872,35 +866,6 @@ describe "Sequel::Dataset#import and #multi_insert" do
   end
 end
 
-describe "Sequel::Dataset#import and #multi_insert :return=>:primary_key" do
-  before do
-    @db = DB
-    @db.create_table!(:imp){primary_key :id; Integer :i}
-    @ds = @db[:imp]
-  end
-  after do
-    @db.drop_table?(:imp)
-  end
-
-  it "should return primary key values" do
-    @ds.multi_insert([{:i=>10}, {:i=>20}, {:i=>30}], :return=>:primary_key).must_equal [1, 2, 3]
-    @ds.import([:i], [[40], [50], [60]], :return=>:primary_key).must_equal [4, 5, 6]
-    @ds.order(:id).map([:id, :i]).must_equal [[1, 10], [2, 20], [3, 30], [4, 40], [5, 50], [6, 60]]
-  end
-
-  it "should handle dataset with row_proc" do
-    ds = @ds.with_row_proc(lambda{|h| Object.new})
-    ds.multi_insert([{:i=>10}, {:i=>20}, {:i=>30}], :return=>:primary_key).must_equal [1, 2, 3]
-    ds.import([:i], [[40], [50], [60]], :return=>:primary_key).must_equal [4, 5, 6]
-  end
-  
-  it "should return primary key values when :slice is used" do
-    @ds.multi_insert([{:i=>10}, {:i=>20}, {:i=>30}], :return=>:primary_key, :slice=>2).must_equal [1, 2, 3]
-    @ds.import([:i], [[40], [50], [60]], :return=>:primary_key, :slice=>2).must_equal [4, 5, 6]
-    @ds.order(:id).map([:id, :i]).must_equal [[1, 10], [2, 20], [3, 30], [4, 40], [5, 50], [6, 60]]
-  end
-end
-
 describe "Sequel::Dataset convenience methods" do
   before(:all) do
     @db = DB
@@ -919,17 +884,17 @@ describe "Sequel::Dataset convenience methods" do
   it "#group_rollup should include hierarchy of groupings" do
     @ds.group_by(:a).group_rollup.select_map([:a, Sequel.function(:sum, :b).cast(Integer).as(:b), Sequel.function(:sum, :c).cast(Integer).as(:c)]).sort_by{|x| x.map(&:to_i)}.must_equal [[nil, 17, 27], [1, 10, 16], [2, 7, 11]]
     @ds.group_by(:a, :b).group_rollup.select_map([:a, :b, Sequel.function(:sum, :c).cast(Integer).as(:c)]).sort_by{|x| x.map(&:to_i)}.must_equal [[nil, nil, 27], [1, nil, 16], [1, 3, 11], [1, 4, 5], [2, nil, 11], [2, 3, 5], [2, 4, 6]]
-  end if DB.dataset.supports_group_rollup?
+  end
 
   it "#group_cube should include all combinations of groupings" do
     @ds.group_by(:a).group_cube.select_map([:a, Sequel.function(:sum, :b).cast(Integer).as(:b), Sequel.function(:sum, :c).cast(Integer).as(:c)]).sort_by{|x| x.map(&:to_i)}.must_equal [[nil, 17, 27], [1, 10, 16], [2, 7, 11]]
     @ds.group_by(:a, :b).group_cube.select_map([:a, :b, Sequel.function(:sum, :c).cast(Integer).as(:c)]).sort_by{|x| x.map(&:to_i)}.must_equal [[nil, nil, 27], [nil, 3, 16], [nil, 4, 11], [1, nil, 16], [1, 3, 11], [1, 4, 5], [2, nil, 11], [2, 3, 5], [2, 4, 6]]
-  end if DB.dataset.supports_group_cube?
+  end
 
   it "#grouping_sets should include sets specified in group" do
     @ds.group_by(:a, []).grouping_sets.select_map([:a, Sequel.function(:sum, :b).cast(Integer).as(:b), Sequel.function(:sum, :c).cast(Integer).as(:c)]).sort_by{|x| x.map(&:to_i)}.must_equal [[nil, 17, 27], [1, 10, 16], [2, 7, 11]]
     @ds.group_by([:a, :b], :a, :b, []).grouping_sets.select_map([:a, :b, Sequel.function(:sum, :c).cast(Integer).as(:c)]).sort_by{|x| x.map(&:to_i)}.must_equal [[nil, nil, 27], [nil, 3, 16], [nil, 4, 11], [1, nil, 16], [1, 3, 11], [1, 4, 5], [2, nil, 11], [2, 3, 5], [2, 4, 6]]
-  end if DB.dataset.supports_grouping_sets?
+  end
 end
 
 describe "Sequel::Dataset convenience methods" do
@@ -1755,117 +1720,3 @@ describe "Concurrent access" do
     end
   end
 end if [:threaded, :sharded_threaded].include?(DB.pool.pool_type) && DB.pool.max_size >= 4 && DB.database_type != :derby && DB.database_type != :sqlanywhere
-
-describe "MERGE" do
-  before(:all) do
-    @db = DB
-    @db.create_table!(:m1){Integer :i1; Integer :a}
-    @db.create_table!(:m2){Integer :i2; Integer :b}
-    @m1 = @db[:m1]
-    @m2 = @db[:m2]
-  end
-  after do
-    @m1.delete
-    @m2.delete
-  end
-  after(:all) do
-    @db.drop_table?(:m1, :m2)
-  end
-
-  def check(ds)
-    @m2.insert(1, 2)
-
-    @m1.all.must_equal []
-
-    # INSERT
-    ds.merge
-    @m1.all.must_equal [{:i1=>1, :a=>13}]
-
-    # UPDATE
-    ds.merge
-    @m1.all.must_equal [{:i1=>12, :a=>35}]
-
-    # DELETE MATCHING current row, INSERT NOT MATCHED new row
-    @m2.insert(12, 3)
-    ds.merge
-    @m1.all.must_equal [{:i1=>1, :a=>13}]
-
-    # MATCHED DO NOTHING
-    @m2.where(:i2=>12).delete
-    @m1.update(:a=>51)
-    ds.merge
-    @m1.all.must_equal [{:i1=>1, :a=>51}]
-
-    # NOT MATCHED DO NOTHING
-    @m1.delete
-    @m2.update(:b=>51)
-    ds.merge
-    @m1.all.must_equal []
-  end
-  
-  it "should allow inserts, updates, and deletes based on conditions in a single MERGE statement" do
-    ds = @m1.
-      merge_using(:m2, :i1=>:i2).
-      merge_insert(:i1=>Sequel[:i2], :a=>Sequel[:b]+11){b <= 50}.
-      merge_delete{{:a => 30..50}}.
-      merge_update(:i1=>Sequel[:i1]+:i2+10, :a=>Sequel[:a]+:b+20){a <= 50}
-    check(ds)
-  end
-
-  cspecify "should support WITH clauses", :db2 do
-    ds = @m1.
-      with(:m3, @db[:m2]).
-      merge_using(:m3, :i1=>:i2).
-      merge_insert(:i1=>Sequel[:i2], :a=>Sequel[:b]+11){b <= 50}.
-      merge_delete{{:a => 30..50}}.
-      merge_update(:i1=>Sequel[:i1]+:i2+10, :a=>Sequel[:a]+:b+20){a <= 50}
-    check(ds)
-  end if DB.dataset.supports_cte?
-
-  it "should support inserts with just columns" do
-    ds = @m1.
-      merge_using(:m2, :i1=>:i2).
-      merge_insert(Sequel[:i2], Sequel[:b]+11){b <= 50}.
-      merge_delete{{:a => 30..50}}.
-      merge_update(:i1=>Sequel[:i1]+:i2+10, :a=>Sequel[:a]+:b+20){a <= 50}
-    check(ds)
-  end
-
-  it "should calls inserts, updates, and deletes without conditions" do
-    @m2.insert(1, 2)
-    ds = @m1.merge_using(:m2, :i1=>:i2)
-    
-    ds.merge_insert(:i2, :b).merge
-    @m1.all.must_equal [{:i1=>1, :a=>2}]
-
-    ds.merge_update(:a=>Sequel[:a]+1).merge
-    @m1.all.must_equal [{:i1=>1, :a=>3}]
-
-    ds.merge_delete.merge
-    @m1.all.must_equal []
-  end
-
-  it "should raise if a merge is attempted without WHEN clauses" do
-    proc{@m1.merge_using(:m2, :i1=>:i2).merge}.must_raise Sequel::Error
-  end
-
-  it "should raise if a merge is attempted without a merge source" do
-    proc{@m1.merge_delete.merge}.must_raise Sequel::Error
-  end
-
-  it "should handle uncachable SQL" do
-    v = true
-    @m2.insert(1, 2)
-    ds = @m1.
-      merge_using(:m2, :i1=>:i2).
-      merge_insert(Sequel[:i2], Sequel[:b]+11){Sequel.delay{v}}
-
-    ds.merge
-    @m1.all.must_equal [{:i1=>1, :a=>13}]
-
-    @m1.delete
-    v = false
-    ds.merge
-    @m1.all.must_equal []
-  end
-end if DB.dataset.supports_merge? && DB.database_type != :oracle
