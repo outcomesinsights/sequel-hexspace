@@ -91,12 +91,12 @@ module Sequel
 
       set_adapter_scheme :hexspace
 
-      ALLOWED_CLIENT_KEYWORDS = Client.instance_method(:initialize).parameters.map(&:last)
+      ALLOWED_CLIENT_KEYWORDS = Client.instance_method(:initialize).parameters.map(&:last).freeze
 
       def connect(server)
         opts = server_opts(server)
         opts[:username] = opts[:user]
-        opts.select!{|k,v| !v.to_s == '' && ALLOWED_CLIENT_KEYWORDS.include?(k)}
+        opts.select!{|k,v| v.to_s != '' && ALLOWED_CLIENT_KEYWORDS.include?(k)}
         client = Client.new(**opts)
         client.sequel_db = self
         client
