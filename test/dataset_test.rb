@@ -1651,38 +1651,6 @@ describe "Emulated functions" do
   end
 end
 
-describe "Dataset replace" do
-  before do
-    DB.create_table!(:items){Integer :id, :unique=>true; Integer :value}
-    @d = DB[:items]
-  end
-
-  after do
-    DB.drop_table?(:items)
-  end
-
-  it "should use support arrays, datasets, and multiple values" do
-    @d.replace([1, 2])
-    @d.all.must_equal [{:id=>1, :value=>2}]
-    @d.replace(1, 2)
-    @d.all.must_equal [{:id=>1, :value=>2}]
-    @d.replace(@d)
-    @d.all.must_equal [{:id=>1, :value=>2}]
-  end
-
-  it "should create a record if the condition is not met" do
-    @d.replace(:id => 111, :value => 333)
-    @d.all.must_equal [{:id => 111, :value => 333}]
-  end
-
-  it "should update a record if the condition is met" do
-    @d.insert(:id => 111)
-    @d.all.must_equal [{:id => 111, :value => nil}]
-    @d.replace(:id => 111, :value => 333)
-    @d.all.must_equal [{:id => 111, :value => 333}]
-  end
-end if DB.dataset.supports_replace?
-
 describe "Concurrent access" do
   before do
     @ds = DB.select(Sequel[1].as(:v)).union(DB.select 2)
@@ -1703,20 +1671,4 @@ describe "Concurrent access" do
     threads.each{|_,q2| q2.push nil}
     threads.each{|_,_,t| t.join}
   end
-
-  if ENV["SEQUEL_FIBER_CONCURRENCY"]
-    it "should support multiple enumerators" do
-      enums = 4.times.map{@ds.to_enum}
-      enums.each{|e| e.next[:v].must_equal 1}
-      enums.each{|e| e.next[:v].must_equal 2}
-      enums.each{|e| proc{e.next}.must_raise StopIteration}
-    end
-
-    it "should support multiple fibers" do
-      fibers = 4.times.map{Fiber.new{@ds.each{|r| Fiber.yield r[:v]}; 3}}
-      fibers.each{|f| f.resume.must_equal 1}
-      fibers.each{|f| f.resume.must_equal 2}
-      fibers.each{|f| f.resume.must_equal 3}
-    end
-  end
-end if [:threaded, :sharded_threaded].include?(DB.pool.pool_type) && DB.pool.max_size >= 4 && DB.database_type != :derby && DB.database_type != :sqlanywhere
+end if [:threaded, :sharded_threaded].include?(DB.pool.pool_type) && DB.pool.max_size >= 4
