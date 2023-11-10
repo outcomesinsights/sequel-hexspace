@@ -32,8 +32,12 @@ module Sequel
 
       private
 
+      def type_literal_generic_float(column)
+        'float'
+      end
+
       def type_literal_generic_string(column)
-        'String'
+        'string'
       end
     end
 
@@ -42,6 +46,10 @@ module Sequel
 
       def quote_identifiers?
         false
+      end
+
+      def requires_sql_standard_datetimes?
+        true
       end
     end
   end
