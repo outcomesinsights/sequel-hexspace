@@ -55,24 +55,25 @@ module Sequel
       # This is designed to minimize the changes to the tests, and is
       # not recommended for production use.
       def delete
-        n = count
-        table_name = first_source_table
-        tmp_name = literal(table_name) + "__sequel_delete_emulate"
-        db.create_table(tmp_name, :as=>select_all.invert)
-        db.drop_table(table_name)
-        db.rename_table(tmp_name, table_name)
-        n
+        _with_temp_table
       end
 
       def update(columns)
+        updated_cols = columns.keys
+        other_cols = db.from(first_source_table).columns - updated_cols
+        updated_vals = columns.values
+
+        _with_temp_table do |tmp_name|
+          db.from(tmp_name).insert([*updated_cols, *other_cols], select(*updated_vals, *other_cols))
+        end
+      end
+
+      private def _with_temp_table
         n = count
         table_name = first_source_table
-        tmp_name = literal(table_name) + "__sequel_update_emulate"
+        tmp_name = literal(table_name).gsub('`', '') + "__sequel_delete_emulate"
         db.create_table(tmp_name, :as=>select_all.invert)
-        updated_cols = columns.keys
-        other_cols = db.from(table_name).columns - updated_cols
-        updated_vals = columns.values
-        db.from(tmp_name).insert([*updated_cols, *other_cols], select(*updated_vals, *other_cols))
+        yield tmp_name if defined?(yield)
         db.drop_table(table_name)
         db.rename_table(tmp_name, table_name)
         n
