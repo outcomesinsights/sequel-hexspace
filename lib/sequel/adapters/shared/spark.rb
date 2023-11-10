@@ -79,6 +79,25 @@ module Sequel
         n
       end
 
+      def complex_expression_sql_append(sql, op, args)
+        case op
+        when :<<
+          literal_append(sql, Sequel.function(:shiftleft, *args))
+        when :>>
+          literal_append(sql, Sequel.function(:shiftright, *args))
+        when :~
+          literal_append(sql, Sequel.function(:regexp, *args))
+        when :'!~'
+          literal_append(sql, ~Sequel.function(:regexp, *args))
+        when :'~*'
+          literal_append(sql, Sequel.function(:regexp, Sequel.function(:lower, args[0]), Sequel.function(:lower, args[1])))
+        when :'!~*'
+          literal_append(sql, ~Sequel.function(:regexp, Sequel.function(:lower, args[0]), Sequel.function(:lower, args[1])))
+        else
+          super
+        end
+      end
+
       def multi_insert_sql_strategy
         :values
       end
@@ -124,6 +143,10 @@ module Sequel
       end
 
       def supports_grouping_sets?
+        true
+      end
+
+      def supports_regexp?
         true
       end
 
