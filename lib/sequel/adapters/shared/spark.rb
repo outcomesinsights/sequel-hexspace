@@ -64,6 +64,30 @@ module Sequel
     module DatasetMethods
       include UnmodifiedIdentifiers::DatasetMethods
 
+      def date_add_sql_append(sql, da)
+        expr = da.expr
+        cast_type = da.cast_type || Time
+
+        h = Hash.new(0)
+        da.interval.each do |k, v|
+          h[k] = v || 0
+        end
+
+        if h[:weeks]
+          h[:days] += h[:weeks] * 7
+        end
+
+        if h[:years] != 0 || h[:months] != 0
+          expr = Sequel.+(expr, Sequel.function(:make_ym_interval, h[:years], h[:months]))
+        end
+
+        if h[:days] != 0 || h[:hours] != 0 || h[:minutes] != 0 || h[:seconds] != 0
+          expr = Sequel.+(expr, Sequel.function(:make_dt_interval, h[:days], h[:hours], h[:minutes], h[:seconds]))
+        end
+
+        literal_append(sql, expr)
+      end
+
       # Emulate delete by selecting all rows except the ones being deleted
       # into a new table, drop the current table, and rename the new
       # table to the current table name.
