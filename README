@@ -1,0 +1,3 @@
+This is a hexspace adapter for Sequel, designed to be used with Spark (not
+Hive). You can use the hexspace:// protocol in the Sequel connection URL
+to use this adapter.
