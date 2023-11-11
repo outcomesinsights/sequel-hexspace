@@ -3,41 +3,18 @@ require_relative 'shared/spark'
 
 module Sequel
   module Hexspace
-    class Client < ::Hexspace::Client
-      attr_accessor :sequel_db
-
-      private
-
-      def column_names(metadata)
-        super.map!(&:to_sym)
-      end
-
-      def type_converter(type)
-        case type
-        when 'binary'
-          Sequel.method(:blob)
-        when 'timestamp'
-          sequel_db.method(:to_application_timestamp)
-        else
-          super
-        end
-      end
-    end
-
     class Database < Sequel::Database
       include Spark::DatabaseMethods
 
       set_adapter_scheme :hexspace
 
-      ALLOWED_CLIENT_KEYWORDS = Client.instance_method(:initialize).parameters.map(&:last).freeze
+      ALLOWED_CLIENT_KEYWORDS = ::Hexspace::Client.instance_method(:initialize).parameters.map(&:last).freeze
 
       def connect(server)
         opts = server_opts(server)
         opts[:username] = opts[:user]
         opts.select!{|k,v| v.to_s != '' && ALLOWED_CLIENT_KEYWORDS.include?(k)}
-        client = Client.new(**opts, include_columns: true)
-        client.sequel_db = self
-        client
+        ::Hexspace::Client.new(**opts)
       end
 
       def dataset_class_default
@@ -52,7 +29,7 @@ module Sequel
 
       def execute(sql, opts=OPTS)
         synchronize(opts[:server]) do |conn|
-          res = log_connection_yield(sql, conn){conn.execute(sql)}
+          res = log_connection_yield(sql, conn){conn.execute(sql, result_object: true)}
         rescue => e
           raise_error(e)
         else
@@ -77,11 +54,36 @@ module Sequel
       include Spark::DatasetMethods
 
       def fetch_rows(sql)
-        execute(sql) do |rows, columns|
+        execute(sql) do |result|
+          columns = result.columns.map(&:to_sym)
           self.columns = columns
+          next if result.rows.empty?
 
-          rows.each do |row|
-            yield row
+          types = result.column_types
+          column_info = columns.map.with_index do |name, i|
+            conversion_proc = case types[i]
+            when 'binary'
+              Sequel.method(:blob)
+            when 'timestamp'
+              db.method(:to_application_timestamp)
+            end
+
+            [i, name, conversion_proc]
+          end
+
+          result.rows.each do |row|
+            h = {}
+            column_info.each do |i, name, conversion_proc|
+              value = row[i]
+              h[name] = if value.nil?
+                nil
+              elsif conversion_proc
+                conversion_proc.call(value)
+              else
+                value
+              end
+            end
+            yield h
           end
         end
       end
