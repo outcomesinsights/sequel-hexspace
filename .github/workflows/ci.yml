@@ -36,3 +36,4 @@ jobs:
       - run: bundle exec rake test
         env:
           SEQUEL_INTEGRATION_URL: "hexspace:///"
+          RUNNING_IN_CI: "1"

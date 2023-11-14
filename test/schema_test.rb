@@ -185,7 +185,7 @@ describe "Database schema modifiers" do
     end
 
     it "should create views with just options and no dataset with :temp, :using, and :options options" do
-      if ENV['BUNDLE_GEMFILE'] == '.ci.gemfile'
+      if ENV['RUNNING_IN_CI']
         skip 'Does not work in CI as CI uses path relative to sequel-hexspace instead of relative to Spark installation'
       end
 
