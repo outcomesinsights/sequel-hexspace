@@ -185,6 +185,10 @@ describe "Database schema modifiers" do
     end
 
     it "should create views with just options and no dataset with :temp, :using, and :options options" do
+      if ENV['BUNDLE_GEMFILE'] == '.ci.gemfile'
+        skip 'Does not work in CI as CI uses path relative to sequel-hexspace instead of relative to Spark installation'
+      end
+
       @db.create_view(:items_view, :temp=>true, :using=>'org.apache.spark.sql.parquet', :options=>{:path=>"examples/src/main/resources/users.parquet"})
       @db[:items_view].count.must_equal 2
     end
