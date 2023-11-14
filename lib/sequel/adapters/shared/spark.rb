@@ -40,6 +40,35 @@ module Sequel
 
       private
 
+      def create_view_sql(name, source, options)
+        if source.is_a?(Hash)
+          options = source
+          source = nil
+        end
+
+        sql = String.new
+        sql << create_view_sql_append_columns("CREATE #{'OR REPLACE 'if options[:replace]}#{'TEMPORARY ' if options[:temp]}VIEW #{quote_schema_table(name)}", options[:columns])
+
+        if source
+          source = source.sql if source.is_a?(Dataset)
+          sql << " AS " << source
+        end
+
+        if options[:using]
+          sql << " USING " << options[:using].to_s
+        end
+
+        if options[:options]
+          sql << ' OPTIONS ('
+          options[:options].each do |k, v|
+            sql << literal(k.to_s) << "=" << literal(v.to_s)
+          end
+          sql << ')'
+        end
+
+        sql
+      end
+
       def schema_parse_table(table, opts)
         m = output_identifier_meth(opts[:dataset])
         im = input_identifier_meth(opts[:dataset])

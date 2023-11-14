@@ -184,6 +184,11 @@ describe "Database schema modifiers" do
       @db[:items_view].map(:n).must_equal [1]
     end
 
+    it "should create views with just options and no dataset with :temp, :using, and :options options" do
+      @db.create_view(:items_view, :temp=>true, :using=>'org.apache.spark.sql.parquet', :options=>{:path=>"examples/src/main/resources/users.parquet"})
+      @db[:items_view].count.must_equal 2
+    end
+
     it "should drop views correctly" do
       @db.create_view(:items_view, @ds.where(:number=>1))
       @db.drop_view(:items_view)
