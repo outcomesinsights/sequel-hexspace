@@ -40,6 +40,10 @@ module Sequel
 
       private
 
+      def create_table_sql(name, generator, options)
+        _append_table_view_options_sql(super, options)
+      end
+
       def create_view_sql(name, source, options)
         if source.is_a?(Hash)
           options = source
@@ -54,6 +58,10 @@ module Sequel
           sql << " AS " << source
         end
 
+        _append_table_view_options_sql(sql, options)
+      end
+
+      def _append_table_view_options_sql(sql, options)
         if options[:using]
           sql << " USING " << options[:using].to_s
         end

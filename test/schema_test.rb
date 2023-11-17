@@ -161,6 +161,13 @@ describe "Database schema modifiers" do
     @db.drop_table(:items, :if_exists=>true)
   end
 
+  it "should create tables with :using and :options options" do
+    @db.create_table(:items, :using=>'org.apache.spark.sql.parquet', :options=>{:path=>"sequel_hexspace_test_items.parquet"}){Integer :x}
+    @db[:items].delete # in case parquet file was already created
+    @db[:items].insert 1
+    @db[:items].all.must_equal [{:x=>1}]
+  end
+
   describe "views" do
     before do
       @db.drop_view(:items_view2) rescue nil
