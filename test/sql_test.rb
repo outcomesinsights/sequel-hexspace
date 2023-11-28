@@ -19,6 +19,11 @@ describe "Database" do
     @db.create_view(:parquetTable, :temp=>true, :using=>'org.apache.spark.sql.parquet', :options=>{:path=>"/path/to/view.parquet"})
     @db.sqls.must_equal ["CREATE TEMPORARY VIEW `parquetTable` USING org.apache.spark.sql.parquet OPTIONS ('path'='/path/to/view.parquet')"]
   end
+
+  it "#values should emulate PostgreSQL VALUES statement using UNION" do
+    @db.values([[1, 2]]).sql.must_equal 'VALUES (1, 2)'
+    @db.values([[1, 2], [3, 4]]).sql.must_equal 'VALUES (1, 2), (3, 4)'
+  end
 end
 
 describe "Dataset#with" do

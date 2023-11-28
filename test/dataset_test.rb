@@ -1662,3 +1662,13 @@ describe "Concurrent access" do
     threads.each{|_,_,t| t.join}
   end
 end if [:threaded, :sharded_threaded].include?(DB.pool.pool_type) && DB.pool.max_size >= 4
+
+
+describe "Database#values" do
+  it "should return the values given" do
+    DB.values([[1, 2]]).map([:col1, :col2]).must_equal [[1, 2]]
+    DB.values([[1, 2], [3, 4]]).map([:col1, :col2]).must_equal [[1, 2], [3, 4]]
+    DB.values([[1, 2], [1, 2]]).map([:col1, :col2]).must_equal [[1, 2], [1, 2]]
+    DB.values([[1, 2]]).from_self(:alias=>:t1, :column_aliases=>[:c1, :c2]).map([:c1, :c2]).must_equal [[1, 2]]
+  end
+end

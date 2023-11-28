@@ -34,6 +34,11 @@ module Sequel
         yield
       end
 
+      # Use an inline VALUES table.
+      def values(v)
+        @default_dataset.clone(:values=>v)
+      end
+
       def views(opts=OPTS)
         dataset.with_sql("SHOW VIEWS").map(:viewName).map(&:to_sym)
       end
@@ -100,6 +105,8 @@ module Sequel
 
     module DatasetMethods
       include UnmodifiedIdentifiers::DatasetMethods
+
+      Dataset.def_sql_method(self, :select, [['if opts[:values]', %w'values'], ['else', %w'with select distinct columns from join where group having compounds order limit']])
 
       def date_add_sql_append(sql, da)
         expr = da.expr
@@ -266,6 +273,11 @@ module Sequel
         end
 
         clone(:with=>with.freeze, :with_references=>references.freeze)
+      end
+
+      private def select_values_sql(sql)
+        sql << 'VALUES '
+        expression_list_append(sql, opts[:values])
       end
     end
 
