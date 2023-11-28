@@ -230,6 +230,106 @@ module Sequel
       def supports_window_functions?
         true
       end
+
+      # Handle forward references in existing CTEs in the dataset by inserting this
+      # dataset before any dataset that would reference it.
+      def with(name, dataset, opts=OPTS)
+        opts = Hash[opts].merge!(:name=>name, :dataset=>dataset).freeze
+        references = ReferenceExtractor.references(dataset)
+
+        if with = @opts[:with]
+          with = with.dup
+          existing_references = @opts[:with_references]
+
+          if referencing_dataset = existing_references[literal(name)]
+            unless i = with.find_index{|o| o[:dataset].equal?(referencing_dataset)}
+              raise Sequel::Error, "internal error finding referencing dataset"
+            end
+
+            with.insert(i, opts)
+
+            # When not inserting dataset at the end, if both the new dataset and the
+            # dataset right after it refer to the same reference, keep the reference
+            # to the new dataset, so that that dataset is inserted before the new dataset
+            # dataset
+            existing_references = existing_references.reject do |k, v|
+              references[k] && v.equal?(referencing_dataset)
+            end
+          else
+            with << opts
+          end
+
+          # Assume we will insert the dataset at the end, so existing references have priority
+          references = references.merge(existing_references)
+        else
+          with = [opts]
+        end
+
+        clone(:with=>with.freeze, :with_references=>references.freeze)
+      end
     end
+
+    # ReferenceExtractor extracts references from datasets that will be used as CTEs.
+    class ReferenceExtractor < ASTTransformer
+      TABLE_IDENTIFIER_KEYS = [:from, :join].freeze
+      COLUMN_IDENTIFIER_KEYS = [:select, :where, :having, :order, :group, :compounds].freeze
+
+      # Returns a hash of literal string identifier keys referenced by the given
+      # dataset with the given dataset as the value for each key.
+      def self.references(dataset)
+        new(dataset).tap{|ext| ext.transform(dataset)}.references
+      end
+
+      attr_reader :references
+
+      def initialize(dataset)
+        @dataset = dataset
+        @references = {}
+      end
+
+      private
+
+      # Extract references from FROM/JOIN, where bare identifiers represent tables.
+      def table_identifier_extract(o)
+        case o
+        when String
+          @references[@dataset.literal(Sequel.identifier(o))] = @dataset
+        when Symbol, SQL::Identifier
+          @references[@dataset.literal(o)] = @dataset
+        when SQL::AliasedExpression
+          table_identifier_extract(o.expression)
+        when SQL::JoinOnClause
+          table_identifier_extract(o.table_expr)
+          v(o.on)
+        when SQL::JoinClause
+          table_identifier_extract(o.table_expr)
+        else
+          v(o)
+        end
+      end
+
+      # Extract references from datasets, where bare identifiers in most case represent columns,
+      # and only qualified identifiers include a table reference.
+      def v(o)
+        case o
+        when Sequel::Dataset
+          # Special case FROM/JOIN, because identifiers inside refer to tables and not columns
+          TABLE_IDENTIFIER_KEYS.each{|k| o.opts[k]&.each{|jc| table_identifier_extract(jc)}}
+
+          # Look in other keys that may have qualified references or subqueries
+          COLUMN_IDENTIFIER_KEYS.each{|k| v(o.opts[k])}
+        when SQL::QualifiedIdentifier
+          # If a qualified identifier has a qualified identifier as a key,
+          # such as schema.table.column, ignore it, because CTE identifiers shouldn't
+          # be schema qualified.
+          unless o.table.is_a?(SQL::QualifiedIdentifier)
+            @references[@dataset.literal(Sequel.identifier(o.table))] = @dataset
+          end
+        else
+          super
+        end
+      end
+    end
+    private_constant :ReferenceExtractor
   end
 end

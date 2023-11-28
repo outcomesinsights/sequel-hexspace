@@ -690,6 +690,15 @@ describe "Common Table Expressions" do
     @ds.intersect(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal [1,2,3,4,5,6]
     @ds.except(@db[:t].with(:t, @ds)).select_order_map(:id).must_equal []
   end
+
+  it "should support datasets with forward references in CTEs" do
+    ds = DB[:t3].
+      with(:t1, DB.select(1)).
+      with(:t2, DB.select(Sequel[2].as(:v)).union(DB[:t3])).
+      with(:t3, DB.select(Sequel[3].as(:v)).union(DB[:t1]))
+    ds.map(:v).must_equal [3, 1]
+    ds.from(:t2).map(:v).must_equal [2, 3, 1]
+  end
 end
 
 describe "Window Functions" do
