@@ -163,6 +163,11 @@ module Sequel
         n
       end
 
+      protected def compound_clone(type, dataset, opts)
+        dataset = dataset.from_self if dataset.opts[:with]
+        super
+      end
+
       def complex_expression_sql_append(sql, op, args)
         case op
         when :<<
@@ -216,6 +221,10 @@ module Sequel
 
       def supports_cte?(type=:select)
         type == :select
+      end
+
+      def supports_cte_in_subqueries?
+        true
       end
 
       def supports_group_cube?

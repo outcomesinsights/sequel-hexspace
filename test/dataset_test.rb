@@ -699,6 +699,25 @@ describe "Common Table Expressions" do
     ds.map(:v).must_equal [3, 1]
     ds.from(:t2).map(:v).must_equal [2, 3, 1]
   end
+
+  it "should support CTEs in subqueries" do
+    ds = DB[:t3].
+      with(:t1, DB.select(1)).
+      with(:t2, DB.select(Sequel[2].as(:v)).union(DB[:t3])).
+      with(:t3, DB.select(Sequel[3].as(:v)).union(DB[:t1])).
+      from_self.
+      with(:t4, DB.select(4))
+    ds.map(:v).must_equal [3, 1]
+  end
+
+  it "should support CTEs in compounds" do
+    ds = DB[:t3].
+      with(:t1, DB.select(1)).
+      with(:t2, DB.select(Sequel[2].as(:v)).union(DB[:t3])).
+      with(:t3, DB.select(Sequel[3].as(:v)).union(DB[:t1])).
+      union(DB[:t4].with(:t4, DB.select(4)))
+    ds.map(:v).must_equal [3, 1, 4]
+  end
 end
 
 describe "Window Functions" do
