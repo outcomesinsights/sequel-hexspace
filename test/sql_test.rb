@@ -24,6 +24,14 @@ describe "Database" do
     @db.values([[1, 2]]).sql.must_equal 'VALUES (1, 2)'
     @db.values([[1, 2], [3, 4]]).sql.must_equal 'VALUES (1, 2), (3, 4)'
   end
+
+  it "#create_schema should issue the appropriate CREATE SCHEMA statement" do
+    @db.create_schema(:sc)
+    @db.sqls.must_equal ["CREATE SCHEMA `sc`"]
+
+    @db.create_schema(:sc, :if_not_exists=>true, :comment=>'foo', :location=>'/bar', :properties=>{:baz=>'quux'})
+    @db.sqls.must_equal ["CREATE SCHEMA IF NOT EXISTS `sc` COMMENT 'foo' LOCATION '/bar' WITH DBPROPERTIES ('baz'='quux')"]
+  end
 end
 
 describe "Dataset#with" do

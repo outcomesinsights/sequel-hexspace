@@ -310,4 +310,8 @@ describe "Database" do
     ds.select_map(Sequel[:sequel_test1][:t1][:id]).must_equal [1]
     ds.where{{sequel_test1[:t1][:id]=>1}}.map(:id).must_equal [1]
   end
+
+  it "#schema can get column information for table in non-default schema" do
+    @db.schema(Sequel[:sequel_test1][:t1]).must_equal [[:id, {:db_type=>"int", :type=>:integer, :ruby_default=>nil, :min_value=>-2147483648, :max_value=>2147483647}]]
+  end
 end

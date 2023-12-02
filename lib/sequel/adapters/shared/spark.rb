@@ -116,7 +116,7 @@ module Sequel
       def schema_parse_table(table, opts)
         m = output_identifier_meth(opts[:dataset])
         im = input_identifier_meth(opts[:dataset])
-        metadata_dataset.with_sql("DESCRIBE #{im.call(table)}").map do |row|
+        metadata_dataset.with_sql("DESCRIBE #{"#{im.call(opts[:schema])}." if opts[:schema]}#{im.call(table)}").map do |row|
           [m.call(row[:col_name]), {:db_type=>row[:data_type], :type=>schema_column_type(row[:data_type])}]
         end
       end
