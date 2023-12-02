@@ -216,6 +216,13 @@ describe "Database schema modifiers" do
       @db.create_or_replace_view(:items_view, @ds.where(:number=>2))
       @db[:items_view].map(:number).must_equal [2]
     end
+
+    it "should create views only if they don't exist correctly" do
+      @db.create_view(:items_view, @ds.where(:number=>1))
+      @db[:items_view].map(:number).must_equal [1]
+      @db.create_view(:items_view, @ds.where(:number=>2), :if_not_exists=>true)
+      @db[:items_view].map(:number).must_equal [1]
+    end
   end
   
   it "should have create_table? only create the table if it doesn't already exist" do

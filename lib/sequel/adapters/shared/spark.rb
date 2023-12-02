@@ -56,7 +56,7 @@ module Sequel
         end
 
         sql = String.new
-        sql << create_view_sql_append_columns("CREATE #{'OR REPLACE 'if options[:replace]}#{'TEMPORARY ' if options[:temp]}VIEW #{quote_schema_table(name)}", options[:columns])
+        sql << create_view_sql_append_columns("CREATE #{'OR REPLACE 'if options[:replace]}#{'TEMPORARY ' if options[:temp]}VIEW#{' IF NOT EXISTS' if options[:if_not_exists]} #{quote_schema_table(name)}", options[:columns])
 
         if source
           source = source.sql if source.is_a?(Dataset)
