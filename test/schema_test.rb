@@ -293,3 +293,21 @@ describe "Database#tables and #views" do
     ts.must_include(:sequel_test_view)
   end
 end
+
+describe "Database" do
+  before do
+    @db = DB
+    @db.create_schema(:sequel_test1)
+    @db.create_table(Sequel[:sequel_test1][:t1]){Integer :id}
+  end
+  after do
+    @db.run("DROP SCHEMA IF EXISTS sequel_test1 CASCADE")
+  end
+
+  it "#create_schema creates schemas" do
+    ds = @db.from{sequel_test1[:t1]}
+    ds.insert(1)
+    ds.select_map(Sequel[:sequel_test1][:t1][:id]).must_equal [1]
+    ds.where{{sequel_test1[:t1][:id]=>1}}.map(:id).must_equal [1]
+  end
+end

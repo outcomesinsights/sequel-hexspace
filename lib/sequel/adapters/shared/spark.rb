@@ -9,6 +9,10 @@ module Sequel
     module DatabaseMethods
       include UnmodifiedIdentifiers::DatabaseMethods
 
+      def create_schema(schema_name, opts=OPTS)
+        run(create_schema_sql(schema_name, opts))
+      end
+
       def database_type
         :spark
       end
@@ -44,6 +48,33 @@ module Sequel
       end
 
       private
+
+      def create_schema_sql(schema_name, opts)
+        sql = String.new
+        sql << 'CREATE SCHEMA '
+        sql << 'IF NOT EXISTS ' if opts[:if_not_exists]
+        sql << literal(schema_name)
+
+        if comment = opts[:comment]
+          sql << ' COMMENT '
+          sql << literal(comment)
+        end
+
+        if location = opts[:location]
+          sql << ' LOCATION '
+          sql << literal(location)
+        end
+
+        if properties = opts[:properties]
+          sql << ' WITH DBPROPERTIES ('
+          properties.each do |k, v|
+            sql << literal(k.to_s) << "=" << literal(v.to_s)
+          end
+          sql << ')'
+        end
+
+        sql
+      end
 
       def create_table_sql(name, generator, options)
         _append_table_view_options_sql(super, options)
