@@ -32,6 +32,14 @@ describe "Database" do
     @db.create_schema(:sc, :if_not_exists=>true, :comment=>'foo', :location=>'/bar', :properties=>{:baz=>'quux'})
     @db.sqls.must_equal ["CREATE SCHEMA IF NOT EXISTS `sc` COMMENT 'foo' LOCATION '/bar' WITH DBPROPERTIES ('baz'='quux')"]
   end
+
+  it "#drop_schema should issue the appropriate DROP SCHEMA statement" do
+    @db.drop_schema(:sc)
+    @db.sqls.must_equal ["DROP SCHEMA `sc`"]
+
+    @db.drop_schema(:sc, :if_exists=>true, :cascade=>true)
+    @db.sqls.must_equal ["DROP SCHEMA IF EXISTS `sc` CASCADE"]
+  end
 end
 
 describe "Dataset#with" do

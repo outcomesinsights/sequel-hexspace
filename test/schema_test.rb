@@ -301,14 +301,18 @@ describe "Database" do
     @db.create_table(Sequel[:sequel_test1][:t1]){Integer :id}
   end
   after do
-    @db.run("DROP SCHEMA IF EXISTS sequel_test1 CASCADE")
+    @db.drop_schema(:sequel_test1, :if_exists=>true, :cascade=>true)
   end
 
-  it "#create_schema creates schemas" do
+  it "#create_schema creates schemas and drop_schema drops them" do
     ds = @db.from{sequel_test1[:t1]}
     ds.insert(1)
     ds.select_map(Sequel[:sequel_test1][:t1][:id]).must_equal [1]
     ds.where{{sequel_test1[:t1][:id]=>1}}.map(:id).must_equal [1]
+
+    @db.table_exists?(Sequel[:sequel_test1][:t1]).must_equal true
+    @db.drop_schema(:sequel_test1, :if_exists=>true, :cascade=>true)
+    @db.table_exists?(Sequel[:sequel_test1][:t1]).must_equal false
   end
 
   it "#schema can get column information for table in non-default schema" do

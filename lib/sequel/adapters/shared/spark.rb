@@ -17,6 +17,10 @@ module Sequel
         :spark
       end
 
+      def drop_schema(schema_name, opts=OPTS)
+        run(drop_schema_sql(schema_name, opts))
+      end
+
       # Spark does not support primary keys, so do not
       # add any options
       def serial_primary_key_options
@@ -110,6 +114,15 @@ module Sequel
           sql << ')'
         end
 
+        sql
+      end
+
+      def drop_schema_sql(schema_name, opts)
+        sql = String.new
+        sql << 'DROP SCHEMA '
+        sql << 'IF EXISTS ' if opts[:if_exists]
+        sql << literal(schema_name)
+        sql << ' CASCADE' if opts[:cascade]
         sql
       end
 
