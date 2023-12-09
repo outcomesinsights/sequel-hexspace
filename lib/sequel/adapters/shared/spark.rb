@@ -34,7 +34,7 @@ module Sequel
       end
 
       def tables(opts=OPTS)
-        dataset.with_sql("SHOW TABLES").map(:tableName).map(&:to_sym) - views
+        _tables("TABLES", :tableName, opts) - views(opts)
       end
 
       # Spark does not support transactions.
@@ -48,10 +48,35 @@ module Sequel
       end
 
       def views(opts=OPTS)
-        dataset.with_sql("SHOW VIEWS").map(:viewName).map(&:to_sym)
+        _tables("VIEWS", :viewName, opts)
       end
 
       private
+
+      def _tables(type, column, opts)
+        sql = String.new
+        sql << "SHOW " << type
+        if schema = opts[:schema]
+          sql << " IN " << literal(schema)
+        end
+        if like = opts[:like]
+          sql << " LIKE " << literal(like)
+        end
+
+        ds = dataset.with_sql(sql)
+
+        if opts[:qualify]
+          ds.map([:namespace, column]).map do |ns, name|
+            if ns && !ns.empty?
+              Sequel::SQL::QualifiedIdentifier.new(ns, name)
+            else
+              name.to_sym
+            end
+          end
+        else
+          ds.map(column).map(&:to_sym)
+        end
+      end
 
       def create_schema_sql(schema_name, opts)
         sql = String.new

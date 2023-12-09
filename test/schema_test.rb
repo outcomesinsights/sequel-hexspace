@@ -292,6 +292,11 @@ describe "Database#tables and #views" do
     ts.wont_include(:sequel_test_table)
     ts.must_include(:sequel_test_view)
   end
+
+  it "#views should support temporary views without a namespace when using :qualify option" do
+    @db.create_view :sequel_test_view2, @db[:sequel_test_table], :temp=>true
+    @db.views(:qualify=>true, :like=>'sequel_test_view2').must_equal [:sequel_test_view2]
+  end
 end
 
 describe "Database" do
@@ -317,5 +322,21 @@ describe "Database" do
 
   it "#schema can get column information for table in non-default schema" do
     @db.schema(Sequel[:sequel_test1][:t1]).must_equal [[:id, {:db_type=>"int", :type=>:integer, :ruby_default=>nil, :min_value=>-2147483648, :max_value=>2147483647}]]
+  end
+
+  it "#tables supports :schema, :qualify, and :like options to only return tables in a given schema" do
+    @db.create_view Sequel[:sequel_test1][:v1], @db[Sequel[:sequel_test1][:t1]]
+    @db.tables(:schema=>:sequel_test1).must_equal [:t1]
+    @db.tables(:schema=>:sequel_test1, :qualify=>true).must_equal [Sequel::SQL::QualifiedIdentifier.new("sequel_test1", "t1")]
+    @db.tables(:schema=>:sequel_test1, :like=>".1").must_equal [:t1]
+    @db.tables(:schema=>:sequel_test1, :like=>".2").must_equal []
+  end
+
+  it "#views supports :schema, :qualify, and :like options to only return views in a given schema" do
+    @db.create_view Sequel[:sequel_test1][:v1], @db[Sequel[:sequel_test1][:t1]]
+    @db.views(:schema=>:sequel_test1).must_equal [:v1]
+    @db.views(:schema=>:sequel_test1, :qualify=>true).must_equal [Sequel::SQL::QualifiedIdentifier.new("sequel_test1", "v1")]
+    @db.views(:schema=>:sequel_test1, :like=>".1").must_equal [:v1]
+    @db.views(:schema=>:sequel_test1, :like=>".2").must_equal []
   end
 end

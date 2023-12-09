@@ -20,6 +20,20 @@ describe "Database" do
     @db.sqls.must_equal ["CREATE TEMPORARY VIEW `parquetTable` USING org.apache.spark.sql.parquet OPTIONS ('path'='/path/to/view.parquet')"]
   end
 
+  it "#tables supports :schema and :like options" do
+    @db.tables(:schema=>:foo)
+    @db.sqls.must_equal ["SHOW TABLES IN `foo`", "SHOW VIEWS IN `foo`",]
+    @db.tables(:like=>'bar')
+    @db.sqls.must_equal ["SHOW TABLES LIKE 'bar'", "SHOW VIEWS LIKE 'bar'"]
+  end
+
+  it "#views supports :schema and :like options" do
+    @db.views(:schema=>:foo)
+    @db.sqls.must_equal ["SHOW VIEWS IN `foo`",]
+    @db.views(:like=>'bar')
+    @db.sqls.must_equal ["SHOW VIEWS LIKE 'bar'"]
+  end
+
   it "#values should emulate PostgreSQL VALUES statement using UNION" do
     @db.values([[1, 2]]).sql.must_equal 'VALUES (1, 2)'
     @db.values([[1, 2], [3, 4]]).sql.must_equal 'VALUES (1, 2), (3, 4)'
