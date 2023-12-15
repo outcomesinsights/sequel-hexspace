@@ -170,6 +170,10 @@ module Sequel
         end
       end
 
+      def supports_create_or_replace_view?
+        true
+      end
+
       def type_literal_generic_file(column)
         'binary'
       end
