@@ -304,6 +304,7 @@ describe "Database" do
     @db = DB
     @db.create_schema(:sequel_test1)
     @db.create_table(Sequel[:sequel_test1][:t1]){Integer :id}
+    @db.drop_view(:t1, :if_exists=>true)
   end
   after do
     @db.drop_schema(:sequel_test1, :if_exists=>true, :cascade=>true)
@@ -326,6 +327,14 @@ describe "Database" do
 
   it "#tables supports :schema, :qualify, and :like options to only return tables in a given schema" do
     @db.create_view Sequel[:sequel_test1][:v1], @db[Sequel[:sequel_test1][:t1]]
+    @db.tables(:schema=>:sequel_test1).must_equal [:t1]
+    @db.tables(:schema=>:sequel_test1, :qualify=>true).must_equal [Sequel::SQL::QualifiedIdentifier.new("sequel_test1", "t1")]
+    @db.tables(:schema=>:sequel_test1, :like=>".1").must_equal [:t1]
+    @db.tables(:schema=>:sequel_test1, :like=>".2").must_equal []
+  end
+
+  it "#tables returns expected results even if temporary view has the same name as table" do
+    @db.create_view(:t1, @db.select(Sequel[1].as(:v)), :temp=>true)
     @db.tables(:schema=>:sequel_test1).must_equal [:t1]
     @db.tables(:schema=>:sequel_test1, :qualify=>true).must_equal [Sequel::SQL::QualifiedIdentifier.new("sequel_test1", "t1")]
     @db.tables(:schema=>:sequel_test1, :like=>".1").must_equal [:t1]

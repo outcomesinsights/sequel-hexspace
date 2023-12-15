@@ -34,7 +34,7 @@ module Sequel
       end
 
       def tables(opts=OPTS)
-        _tables("TABLES", :tableName, opts) - views(opts)
+        _mangle_tables(_tables("TABLES", :tableName, opts) - _views(opts), opts)
       end
 
       # Spark does not support transactions.
@@ -48,7 +48,7 @@ module Sequel
       end
 
       def views(opts=OPTS)
-        _tables("VIEWS", :viewName, opts)
+        _mangle_tables(_views(opts), opts)
       end
 
       private
@@ -65,16 +65,27 @@ module Sequel
 
         ds = dataset.with_sql(sql)
 
-        if opts[:qualify]
-          ds.map([:namespace, column]).map do |ns, name|
-            if ns && !ns.empty?
-              Sequel::SQL::QualifiedIdentifier.new(ns, name)
-            else
-              name.to_sym
-            end
+        # Always internally qualify, so that if a table name in a schema
+        # has the same name as a temporary view, it will not exclude
+        # the table name.
+        ds.map([:namespace, column]).map do |ns, name|
+          if ns && !ns.empty?
+            Sequel::SQL::QualifiedIdentifier.new(ns, name)
+          else
+            name.to_sym
           end
+        end
+      end
+
+      def _views(opts)
+        _tables("VIEWS", :viewName, opts)
+      end
+
+      def _mangle_tables(tables, opts)
+        if opts[:qualify]
+          tables
         else
-          ds.map(column).map(&:to_sym)
+          tables.map{|t| t.is_a?(Sequel::SQL::QualifiedIdentifier) ? t.column.to_sym : t}
         end
       end
 
