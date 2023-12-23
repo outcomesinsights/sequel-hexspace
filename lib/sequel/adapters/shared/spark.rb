@@ -120,6 +120,10 @@ module Sequel
         _append_table_view_options_sql(super, options)
       end
 
+      def create_table_as_sql(name, sql, options)
+        _append_table_view_options_sql(create_table_prefix_sql(name, options), options) << " AS #{sql}"
+      end
+
       def create_view_sql(name, source, options)
         if source.is_a?(Hash)
           options = source
