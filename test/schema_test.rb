@@ -168,6 +168,17 @@ describe "Database schema modifiers" do
     @db[:items].all.must_equal [{:x=>1}]
   end
 
+  it "should create tables with :partitioned_by, :clustered_by, :sorted_by and :num_buckets options" do
+    @db.create_table(:items, :using=>'parquet', :partitioned_by=>:x, :clustered_by=>[:y,:z], :num_buckets=>4, :sorted_by=>:z) do
+      Integer :x
+      Integer :y
+      Integer :z
+    end
+    @db[:items].delete # in case parquet file was already created
+    @db[:items].insert 1,2,3
+    @db[:items].all.must_equal [{:x=>1,:y=>2,:z=>3}]
+  end
+
   describe "views" do
     before do
       @db.drop_view(:items_view2) rescue nil
