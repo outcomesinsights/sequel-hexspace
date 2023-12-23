@@ -142,6 +142,19 @@ module Sequel
           sql << " USING " << options[:using].to_s
         end
 
+        if options[:partitioned_by]
+          sql << " PARTITIONED BY " << _column_list(options[:partitioned_by])
+        end
+
+        if options[:clustered_by]
+          sql << " CLUSTERED BY " << _column_list(options[:clustered_by])
+          if options[:sorted_by]
+            sql << " SORTED BY " << _column_list(options[:sorted_by])
+          end
+          raise "Must specify :num_buckets when :clustered_by is used" unless options[:num_buckets]
+          sql << " INTO #{options[:num_buckets]} BUCKETS"
+        end
+
         if options[:options]
           sql << ' OPTIONS ('
           options[:options].each do |k, v|
@@ -151,6 +164,10 @@ module Sequel
         end
 
         sql
+      end
+
+      def _column_list(columns)
+        "(#{Array(columns).join(", ")})"
       end
 
       def drop_schema_sql(schema_name, opts)
