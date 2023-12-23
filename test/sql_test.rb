@@ -24,6 +24,11 @@ describe "Database" do
     @db.sqls.must_equal ["CREATE TABLE `parquetTable` (`x` integer, `y` integer, `z` integer) USING parquet PARTITIONED BY (x) CLUSTERED BY (y, z) SORTED BY (z) INTO 4 BUCKETS"]
   end
 
+  it "#create_table should support :partitioned_by, :clustered_by, :sorted_by and :num_buckets options when :as is present" do
+    @db.create_table(:parquetTable, :using=>'parquet', :partitioned_by=>:x, :clustered_by=>[:y,:z], :num_buckets=>4, :sorted_by=>:z, as: @db["SELECT 1"])
+    @db.sqls.must_equal ["CREATE TABLE `parquetTable` USING parquet PARTITIONED BY (x) CLUSTERED BY (y, z) SORTED BY (z) INTO 4 BUCKETS AS SELECT 1"]
+  end
+
   it "#create_view should support :using and :path options" do
     @db.create_view(:parquetTable, :temp=>true, :using=>'org.apache.spark.sql.parquet', :options=>{:path=>"/path/to/view.parquet"})
     @db.sqls.must_equal ["CREATE TEMPORARY VIEW `parquetTable` USING org.apache.spark.sql.parquet OPTIONS ('path'='/path/to/view.parquet')"]
