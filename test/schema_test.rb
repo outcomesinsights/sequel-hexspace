@@ -175,7 +175,7 @@ describe "Database schema modifiers" do
       Integer :z
     end
     @db[:items].delete # in case parquet file was already created
-    @db[:items].insert 1,2,3
+    @db[:items].insert(:x=>1, :y=>2, :z=>3)
     @db[:items].all.must_equal [{:x=>1,:y=>2,:z=>3}]
   end
 

@@ -147,16 +147,20 @@ module Sequel
         end
 
         if options[:partitioned_by]
-          sql << " PARTITIONED BY " << _column_list(options[:partitioned_by])
+          sql << " PARTITIONED BY "
+          _append_column_list_sql(sql, options[:partitioned_by])
         end
 
         if options[:clustered_by]
-          sql << " CLUSTERED BY " << _column_list(options[:clustered_by])
+          sql << " CLUSTERED BY "
+          _append_column_list_sql(sql, options[:clustered_by])
+
           if options[:sorted_by]
-            sql << " SORTED BY " << _column_list(options[:sorted_by])
+            sql << " SORTED BY "
+            _append_column_list_sql(sql, options[:sorted_by])
           end
           raise "Must specify :num_buckets when :clustered_by is used" unless options[:num_buckets]
-          sql << " INTO #{options[:num_buckets]} BUCKETS"
+          sql << " INTO " << literal(options[:num_buckets]) << " BUCKETS"
         end
 
         if options[:options]
@@ -170,8 +174,10 @@ module Sequel
         sql
       end
 
-      def _column_list(columns)
-        "(#{Array(columns).join(", ")})"
+      def _append_column_list_sql(sql, columns)
+        sql << '(' 
+        schema_utility_dataset.send(:identifier_list_append, sql, Array(columns))
+        sql << ')'
       end
 
       def drop_schema_sql(schema_name, opts)
