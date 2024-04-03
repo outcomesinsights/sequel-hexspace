@@ -1,0 +1,28 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    bigdecimal (3.1.5)
+    hexspace (0.2.1)
+      thrift (>= 0.18)
+    minitest (5.20.0)
+    minitest-global_expectations (1.0.1)
+      minitest (> 5)
+    minitest-hooks (1.5.1)
+      minitest (> 5.3)
+    rake (13.1.0)
+    sequel (5.75.0)
+      bigdecimal
+    thrift (0.19.0)
+
+PLATFORMS
+  x86_64-linux
+
+DEPENDENCIES
+  hexspace
+  minitest-global_expectations
+  minitest-hooks
+  rake
+  sequel
+
+BUNDLED WITH
+   2.4.7

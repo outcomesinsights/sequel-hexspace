@@ -16,7 +16,7 @@ Hive). You can use the hexspace:// protocol in the Sequel connection URL
 to use this adapter.
 END
   s.add_dependency('sequel', '~> 5.0')
-  s.add_dependency('hexspace')
+  s.add_dependency('hexspace', '>= 0.2.1')
   s.add_development_dependency('rake')
   s.add_development_dependency("minitest", '~> 5.7')
   s.add_development_dependency("minitest-hooks")

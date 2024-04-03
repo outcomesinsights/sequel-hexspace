@@ -1,3 +1,5 @@
+require "bundler/gem_tasks"
+
 ### Test 
 
 desc "Run tests"
