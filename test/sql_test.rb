@@ -15,6 +15,31 @@ describe "Database" do
     @db.sqls.must_equal ["CREATE TABLE `parquetTable` (`x` integer) USING org.apache.spark.sql.parquet OPTIONS ('path'='/path/to/view.parquet')"]
   end
 
+  it "#create_table should support :external option" do
+    @db.create_table(:ext_table, :external=>true, :using=>:parquet, :location=>'/data/ext_table.parquet'){}
+    @db.sqls.must_equal ["CREATE EXTERNAL TABLE `ext_table` USING parquet LOCATION '/data/ext_table.parquet'"]
+  end
+
+  it "#create_table should support :location option" do
+    @db.create_table(:loc_table, :using=>:parquet, :location=>'/data/loc_table.parquet'){}
+    @db.sqls.must_equal ["CREATE TABLE `loc_table` USING parquet LOCATION '/data/loc_table.parquet'"]
+  end
+
+  it "#create_table should support :like option" do
+    @db.create_table(:items2, :like=>:items){}
+    @db.sqls.must_equal ["CREATE TABLE `items2` LIKE `items`"]
+  end
+
+  it "#create_table should support :like with :using and :location" do
+    @db.create_table(:items2, :like=>:items, :using=>:parquet, :location=>'/data/items2.parquet'){}
+    @db.sqls.must_equal ["CREATE TABLE `items2` LIKE `items` USING parquet LOCATION '/data/items2.parquet'"]
+  end
+
+  it "#create_table with :using and empty columns should skip column definition" do
+    @db.create_table(:ext_table, :external=>true, :using=>:parquet, :location=>'/data/ext_table.parquet'){}
+    @db.sqls.must_equal ["CREATE EXTERNAL TABLE `ext_table` USING parquet LOCATION '/data/ext_table.parquet'"]
+  end
+
   it "#create_table should support :partitioned_by, :clustered_by, :sorted_by and :num_buckets options" do
     @db.create_table(:parquetTable, :using=>'parquet', :partitioned_by=>:x, :clustered_by=>[:y,:z], :num_buckets=>4, :sorted_by=>:z) do
       Integer :x

@@ -28,7 +28,7 @@ module Sequel
         # ignoring the primary key setting.
         {:type=>Integer}
       end
- 
+
       def supports_create_table_if_not_exists?
         true
       end
@@ -116,8 +116,23 @@ module Sequel
         sql
       end
 
+      def create_table_prefix_sql(name, options)
+        sql = String.new
+        sql << 'CREATE '
+        sql << 'EXTERNAL ' if options[:external]
+        sql << 'TEMPORARY ' if options[:temp]
+        sql << 'TABLE '
+        sql << 'IF NOT EXISTS ' if options[:if_not_exists]
+        sql << quote_schema_table(name)
+        sql
+      end
+
       def create_table_sql(name, generator, options)
-        _append_table_view_options_sql(super, options)
+        if options[:like] || (options[:using] && generator.columns.empty?)
+          _append_table_view_options_sql(create_table_prefix_sql(name, options), options)
+        else
+          _append_table_view_options_sql(super, options)
+        end
       end
 
       def create_table_as_sql(name, sql, options)
@@ -142,8 +157,16 @@ module Sequel
       end
 
       def _append_table_view_options_sql(sql, options)
+        if like = options[:like]
+          sql << " LIKE " << literal(like)
+        end
+
         if options[:using]
           sql << " USING " << options[:using].to_s
+        end
+
+        if location = options[:location]
+          sql << " LOCATION " << literal(location)
         end
 
         if options[:partitioned_by]
@@ -175,7 +198,7 @@ module Sequel
       end
 
       def _append_column_list_sql(sql, columns)
-        sql << '(' 
+        sql << '('
         schema_utility_dataset.send(:identifier_list_append, sql, Array(columns))
         sql << ')'
       end
@@ -310,7 +333,7 @@ module Sequel
         true
       end
 
-      def insert_supports_empty_values? 
+      def insert_supports_empty_values?
         false
       end
 

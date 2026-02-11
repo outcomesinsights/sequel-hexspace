@@ -179,6 +179,27 @@ describe "Database schema modifiers" do
     @db[:items].all.must_equal [{:x=>1,:y=>2,:z=>3}]
   end
 
+  it "should create tables with :like option" do
+    @db.create_table!(:items){Integer :number}
+    @ds.insert(:number=>10)
+    @db.create_table(:items2, :like=>:items)
+    @db.schema(:items2, :reload=>true).map{|x| x.first}.must_equal [:number]
+  end
+
+  it "should create tables with :like and :using options" do
+    @db.create_table!(:items){Integer :number}
+    @ds.insert(:number=>10)
+    @db.create_table(:items2, :like=>:items, :using=>:parquet)
+    @db.schema(:items2, :reload=>true).map{|x| x.first}.must_equal [:number]
+  end
+
+  it "should create tables with :like, :using and :location options" do
+    @db.create_table!(:items){Integer :number}
+    @ds.insert(:number=>10)
+    @db.create_table(:items2, :like=>:items, :using=>:parquet, :location=>'path/to/parquet/files')
+    @db.schema(:items2, :reload=>true).map{|x| x.first}.must_equal [:number]
+  end
+
   describe "views" do
     before do
       @db.drop_view(:items_view2) rescue nil
