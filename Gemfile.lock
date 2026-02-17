@@ -12,7 +12,7 @@ GEM
     hexspace (0.2.1)
       thrift (>= 0.18)
     minitest (5.22.3)
-    minitest-global_expectations (1.0.1)
+    minitest-global_expectations (1.0.2)
       minitest (> 5)
     minitest-hooks (1.5.1)
       minitest (> 5.3)
