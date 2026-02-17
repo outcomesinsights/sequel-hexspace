@@ -18,7 +18,7 @@ END
   s.add_dependency('sequel', '~> 5.0')
   s.add_dependency('hexspace', '>= 0.2.1')
   s.add_development_dependency('rake')
-  s.add_development_dependency("minitest", '~> 5.7')
+  s.add_development_dependency("minitest", '~> 6.0')
   s.add_development_dependency("minitest-hooks")
   s.add_development_dependency("minitest-global_expectations")
 end
