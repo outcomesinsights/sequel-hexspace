@@ -11,11 +11,13 @@ GEM
     bigdecimal (3.1.7)
     hexspace (0.2.1)
       thrift (>= 0.18)
-    minitest (5.22.3)
+    minitest (6.0.1)
+      prism (~> 1.5)
     minitest-global_expectations (1.0.2)
       minitest (> 5)
     minitest-hooks (1.5.1)
       minitest (> 5.3)
+    prism (1.9.0)
     rake (13.2.0)
     sequel (5.79.0)
       bigdecimal
@@ -26,7 +28,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
-  minitest (~> 5.7)
+  minitest (~> 6.0)
   minitest-global_expectations
   minitest-hooks
   rake
