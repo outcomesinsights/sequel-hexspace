@@ -19,7 +19,7 @@ GEM
     minitest-hooks (1.5.1)
       minitest (> 5.3)
     prism (1.9.0)
-    rake (13.2.0)
+    rake (13.3.1)
     sequel (5.79.0)
       bigdecimal
     thrift (0.22.0)
