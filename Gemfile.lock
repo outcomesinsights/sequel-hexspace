@@ -16,7 +16,7 @@ GEM
       prism (~> 1.5)
     minitest-global_expectations (1.0.2)
       minitest (> 5)
-    minitest-hooks (1.5.1)
+    minitest-hooks (1.5.3)
       minitest (> 5.3)
     prism (1.9.0)
     rake (13.2.0)
