@@ -9,7 +9,8 @@ GEM
   remote: https://rubygems.org/
   specs:
     bigdecimal (3.1.7)
-    hexspace (0.2.1)
+    hexspace (0.3.0)
+      bigdecimal
       thrift (>= 0.18)
     minitest (6.0.1)
       prism (~> 1.5)
@@ -21,7 +22,7 @@ GEM
     rake (13.2.0)
     sequel (5.79.0)
       bigdecimal
-    thrift (0.20.0)
+    thrift (0.22.0)
 
 PLATFORMS
   ruby
