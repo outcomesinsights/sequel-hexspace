@@ -305,6 +305,7 @@ describe "Database#tables and #views" do
     @db.create_view :sequel_test_view, @db[:sequel_test_table]
   end
   after do
+    @db.drop_view(:sequel_test_view2) rescue nil
     @db.drop_view :sequel_test_view
     @db.drop_table :sequel_test_table
   end
