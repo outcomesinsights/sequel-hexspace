@@ -52,6 +52,13 @@ jobs:
         env:
           SEQUEL_INTEGRATION_URL: "hexspace:///"
           RUNNING_IN_CI: "1"
+      - name: Upload Coverage
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-ruby-${{ matrix.ruby }}
+          path: coverage/
+          retention-days: 90
 
   ci:
     if: always()
