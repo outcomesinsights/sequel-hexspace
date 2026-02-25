@@ -2,14 +2,29 @@ name: CI
 
 on: [push, pull_request]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  tests:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+          bundler-cache: true
+      - name: Run RuboCop
+        run: bundle exec rubocop
+
+  test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - ruby: 3.2
+        ruby: ['3.2', '3.3', '3.4', '4.0']
+    name: Test Ruby ${{ matrix.ruby }}
     env:
       SPARK_VERSION: 3.5.0
       BUNDLE_GEMFILE: .ci.gemfile
@@ -37,3 +52,20 @@ jobs:
         env:
           SEQUEL_INTEGRATION_URL: "hexspace:///"
           RUNNING_IN_CI: "1"
+
+  ci:
+    if: always()
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI status
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more CI jobs failed"
+            exit 1
+          fi
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more CI jobs were cancelled"
+            exit 1
+          fi
+          echo "All CI jobs passed"
