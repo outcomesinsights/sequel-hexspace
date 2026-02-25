@@ -1,0 +1,142 @@
+inherit_from: .rubocop_todo.yml
+
+plugins:
+  - rubocop-minitest
+
+AllCops:
+  TargetRubyVersion: 4.0
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - 'vendor/**/*'
+    - 'bin/**/*'
+    - 'tmp/**/*'
+
+inherit_mode:
+  merge:
+    - Exclude
+
+Layout/IndentationWidth:
+  Width: 2
+
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Style/DefWithParentheses:
+  Enabled: false
+
+Style/MethodCallWithoutArgsParentheses:
+  Enabled: true
+
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns: ['\A\s*#']
+  Exclude:
+    - '*.gemspec'
+    - 'test/**/*'
+
+Style/Documentation:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Style/Lambda:
+  Enabled: false
+
+Style/ParallelAssignment:
+  Enabled: false
+
+Style/GuardClause:
+  Enabled: true
+
+Style/IfUnlessModifier:
+  Enabled: true
+
+Metrics/MethodLength:
+  Max: 25
+
+Metrics/ClassLength:
+  Max: 200
+
+Metrics/ModuleLength:
+  Max: 200
+
+Metrics/BlockLength:
+  Max: 50
+  Exclude:
+    - 'test/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+
+Style/ZeroLengthPredicate:
+  Enabled: false
+
+Naming/MemoizedInstanceVariableName:
+  Enabled: false
+
+Naming/MethodParameterName:
+  MinNameLength: 1
+
+Style/MultilineBlockChain:
+  Enabled: false
+
+Metrics/AbcSize:
+  Max: 35
+  Exclude:
+    - 'test/**/*'
+
+Metrics/CyclomaticComplexity:
+  Max: 15
+
+Metrics/PerceivedComplexity:
+  Max: 12
+
+Metrics/BlockNesting:
+  Max: 4
+
+Naming/AccessorMethodName:
+  Enabled: false
+
+Style/HashSyntax:
+  EnforcedStyle: ruby19
+  EnforcedShorthandSyntax: either
+
+Minitest/AssertEqual:
+  Enabled: true
+
+Minitest/RefuteEqual:
+  Enabled: true
+
+Layout/EmptyLinesAroundClassBody:
+  EnforcedStyle: empty_lines_except_namespace
+
+Layout/EmptyLinesAroundModuleBody:
+  EnforcedStyle: empty_lines_except_namespace
+
+Style/TrailingCommaInArguments:
+  EnforcedStyleForMultiline: comma
+
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: comma
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: comma
+
+Gemspec/DevelopmentDependencies:
+  Enabled: false
+
+Style/HashLikeCase:
+  Exclude:
+    - 'test/**/*'
+
+Lint/DuplicateBranch:
+  Exclude:
+    - 'test/**/*'
+
+Style/StringConcatenation:
+  Exclude:
+    - 'test/**/*'

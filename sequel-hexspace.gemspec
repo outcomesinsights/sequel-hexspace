@@ -21,4 +21,6 @@ END
   s.add_development_dependency("minitest", '~> 6.0')
   s.add_development_dependency("minitest-hooks")
   s.add_development_dependency("minitest-global_expectations")
+  s.add_development_dependency('rubocop', '~> 1.0')
+  s.add_development_dependency('rubocop-minitest', '~> 0.25')
 end

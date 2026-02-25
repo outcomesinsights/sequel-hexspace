@@ -3,3 +3,7 @@
 source "https://rubygems.org"
 
 gemspec
+
+group :development do
+  gem 'overcommit', '~> 0.68'
+end
