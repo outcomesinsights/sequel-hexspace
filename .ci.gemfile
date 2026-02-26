@@ -11,3 +11,5 @@ gem 'simplecov'
 
 # thrift 0.22.0 requires base64 but doesn't declare it; removed from default gems in Ruby 3.4
 gem 'base64'
+# logger removed from default gems in Ruby 4.0
+gem 'logger'

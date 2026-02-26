@@ -8,6 +8,7 @@ GEM
     hexspace (0.3.0)
       bigdecimal
       thrift (>= 0.18)
+    logger (1.7.0)
     minitest (6.0.2)
       drb (~> 2.0)
       prism (~> 1.5)
@@ -33,6 +34,7 @@ PLATFORMS
 DEPENDENCIES
   base64
   hexspace
+  logger
   minitest-global_expectations
   minitest-hooks
   rake

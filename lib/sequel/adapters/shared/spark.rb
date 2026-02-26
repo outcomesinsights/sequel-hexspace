@@ -9,6 +9,10 @@ module Sequel
     module DatabaseMethods
       include UnmodifiedIdentifiers::DatabaseMethods
 
+      def self.extended(db)
+        db.extension(:auto_cast_date_and_time)
+      end
+
       def create_schema(schema_name, opts=OPTS)
         run(create_schema_sql(schema_name, opts))
       end
