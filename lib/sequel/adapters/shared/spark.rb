@@ -266,6 +266,17 @@ module Sequel
         literal_append(sql, expr)
       end
 
+      # Route prepared statement / bound variable deletes through the
+      # emulated delete path, since Spark does not support native DELETE.
+      def call(type, bind_variables=OPTS, *values, &)
+        if type == :delete
+          ps = to_prepared_statement(type, values, :extend=>send(:bound_variable_modules))
+          ps.bind(bind_variables).delete
+        else
+          super
+        end
+      end
+
       # Emulate delete by selecting all rows except the ones being deleted
       # into a new table, drop the current table, and rename the new
       # table to the current table name.
