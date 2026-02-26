@@ -9,10 +9,6 @@ module Sequel
     module DatabaseMethods
       include UnmodifiedIdentifiers::DatabaseMethods
 
-      def self.extended(db)
-        db.extension(:auto_cast_date_and_time)
-      end
-
       def create_schema(schema_name, opts=OPTS)
         run(create_schema_sql(schema_name, opts))
       end
@@ -343,6 +339,24 @@ module Sequel
 
       def literal_blob_append(sql, v)
         sql << "to_binary('" << [v].pack("m*").gsub("\n", "") << "', 'base64')"
+      end
+
+      # Spark requires DATE 'YYYY-MM-DD' syntax instead of plain quoted strings
+      def literal_date_append(sql, v)
+        sql << "DATE "
+        super
+      end
+
+      # Spark requires TIMESTAMP 'YYYY-MM-DD HH:MM:SS' syntax instead of plain quoted strings
+      def literal_time_append(sql, v)
+        sql << "TIMESTAMP "
+        super
+      end
+
+      # Spark requires TIMESTAMP 'YYYY-MM-DD HH:MM:SS' syntax instead of plain quoted strings
+      def literal_datetime_append(sql, v)
+        sql << "TIMESTAMP "
+        super
       end
 
       def literal_false
