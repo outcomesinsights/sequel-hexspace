@@ -212,6 +212,12 @@ module Sequel
         sql
       end
 
+      # Spark SQL does not support CASCADE on DROP TABLE.
+      # Support :purge option, ignore :cascade.
+      def drop_table_sql(name, options)
+        "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_schema_table(name)}#{' PURGE' if options[:purge]}"
+      end
+
       def schema_parse_table(table, opts)
         m = output_identifier_meth(opts[:dataset])
         im = input_identifier_meth(opts[:dataset])

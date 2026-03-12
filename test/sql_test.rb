@@ -93,6 +93,16 @@ describe "Database" do
     @db.drop_schema(:sc, :if_exists=>true, :cascade=>true)
     @db.sqls.must_equal ["DROP SCHEMA IF EXISTS `sc` CASCADE"]
   end
+
+  it "#drop_table should ignore :cascade option" do
+    @db.drop_table(:items, :cascade=>true)
+    @db.sqls.must_equal ["DROP TABLE `items`"]
+  end
+
+  it "#drop_table should support :if_exists and :purge options" do
+    @db.drop_table(:items, :if_exists=>true, :purge=>true)
+    @db.sqls.must_equal ["DROP TABLE IF EXISTS `items` PURGE"]
+  end
 end
 
 describe "Dataset#with" do
