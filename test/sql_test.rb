@@ -103,6 +103,20 @@ describe "Database" do
     @db.drop_table(:items, :if_exists=>true, :purge=>true)
     @db.sqls.must_equal ["DROP TABLE IF EXISTS `items` PURGE"]
   end
+
+  it "supports mock://hexspace with shared SQL behavior" do
+    db = Sequel.connect('mock://hexspace')
+    db.sqls
+    db.create_table(:items, :using=>:parquet, :location=>'/tmp/items.parquet') {}
+    db.sqls.must_equal ["CREATE TABLE `items` USING parquet LOCATION '/tmp/items.parquet'"]
+    db.database_type.must_equal :hexspace
+  end
+
+  it "supports Sequel.mock(host: :hexspace)" do
+    db = Sequel.mock(:host=>:hexspace)
+    db.database_type.must_equal :hexspace
+    db.dataset.send(:supports_cte?).must_equal true
+  end
 end
 
 describe "Dataset#with" do

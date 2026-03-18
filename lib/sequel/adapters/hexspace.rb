@@ -1,10 +1,10 @@
+require_relative 'shared/hexspace'
 require 'hexspace'
-require_relative 'shared/spark'
 
 module Sequel
   module Hexspace
     class Database < Sequel::Database
-      include Spark::DatabaseMethods
+      include DatabaseMethods
 
       set_adapter_scheme :hexspace
 
@@ -25,6 +25,17 @@ module Sequel
         # Hexspace does not appear to support a disconnection method
         # To keep tests happy, mark the connection as invalid
         conn.instance_variable_set(:@sequel_invalid, true)
+      end
+
+      # Hexspace returns timestamp strings in UTC without an explicit offset.
+      # When no database timezone is configured, Sequel treats naive strings as
+      # local time, which shifts CURRENT_TIMESTAMP by the local UTC offset.
+      def to_application_timestamp(value)
+        if value.is_a?(String) && timezone.nil? && value !~ /(?:Z|[+-]\d{2}(?::?\d{2})?)\z/
+          Sequel.convert_timestamp(value, :utc)
+        else
+          super
+        end
       end
 
       def execute(sql, opts=OPTS)
@@ -51,7 +62,7 @@ module Sequel
     end
 
     class Dataset < Sequel::Dataset
-      include Spark::DatasetMethods
+      include DatasetMethods
 
       def fetch_rows(sql)
         execute(sql) do |result|

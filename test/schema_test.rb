@@ -1,4 +1,5 @@
 require_relative "spec_helper"
+require "tmpdir"
 
 describe "Database schema parser" do
   after do
@@ -224,12 +225,22 @@ describe "Database schema modifiers" do
     end
 
     it "should create views with just options and no dataset with :temp, :using, and :options options" do
-      if ENV['RUNNING_IN_CI']
-        skip 'Does not work in CI as CI uses path relative to sequel-hexspace instead of relative to Spark installation'
-      end
+      Dir.mktmpdir("sequel-hexspace-view-fixture") do |dir|
+        path = File.join(dir, "users.parquet")
 
-      @db.create_view(:items_view, :temp=>true, :using=>'org.apache.spark.sql.parquet', :options=>{:path=>"examples/src/main/resources/users.parquet"})
-      @db[:items_view].count.must_equal 2
+        begin
+          @db.create_table(:users_source, :using=>"parquet", :options=>{:path=>path}) do
+            Integer :id
+            String :name
+          end
+          @db[:users_source].multi_insert([{:id=>1, :name=>"A"}, {:id=>2, :name=>"B"}])
+
+          @db.create_view(:items_view, :temp=>true, :using=>"org.apache.spark.sql.parquet", :options=>{:path=>path})
+          @db[:items_view].count.must_equal 2
+        ensure
+          @db.drop_table(:users_source) rescue nil
+        end
+      end
     end
 
     it "should drop views correctly" do
