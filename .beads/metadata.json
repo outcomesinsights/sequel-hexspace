@@ -1,7 +1,8 @@
 {
   "database": "dolt",
-  "jsonl_export": "issues.jsonl",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "beads_sequel-hexspace"
+  "dolt_server_port": 3308,
+  "dolt_database": "beads_sequel_hexspace",
+  "project_id": "e996a01d-e9ae-4d0c-95d7-3a40270789e8"
 }

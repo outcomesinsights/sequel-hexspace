@@ -1,2 +1,6 @@
 coverage/
 .claude/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
