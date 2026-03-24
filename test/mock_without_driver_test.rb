@@ -32,7 +32,7 @@ describe "mock hexspace without driver" do
       require_relative "lib/sequel/adapters/shared/hexspace"
 
       db = Sequel.connect("mock://hexspace")
-      abort "wrong db type" unless db.database_type == :hexspace
+      abort "wrong db type" unless db.database_type == :spark
       puts db[:items].with(:x, db[:items]).sql
     RUBY
 

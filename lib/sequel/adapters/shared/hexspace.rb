@@ -6,10 +6,6 @@ module Sequel
   module Hexspace
     module DatabaseMethods
       include Sequel::Spark::DatabaseMethods
-
-      def database_type
-        :hexspace
-      end
     end
 
     module DatasetMethods

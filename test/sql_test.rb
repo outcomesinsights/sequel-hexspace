@@ -109,12 +109,12 @@ describe "Database" do
     db.sqls
     db.create_table(:items, :using=>:parquet, :location=>'/tmp/items.parquet') {}
     db.sqls.must_equal ["CREATE TABLE `items` USING parquet LOCATION '/tmp/items.parquet'"]
-    db.database_type.must_equal :hexspace
+    db.database_type.must_equal :spark
   end
 
   it "supports Sequel.mock(host: :hexspace)" do
     db = Sequel.mock(:host=>:hexspace)
-    db.database_type.must_equal :hexspace
+    db.database_type.must_equal :spark
     db.dataset.send(:supports_cte?).must_equal true
   end
 end
