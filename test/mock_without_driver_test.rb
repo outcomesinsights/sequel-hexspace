@@ -1,23 +1,23 @@
-require_relative "spec_helper"
-require "open3"
-require "rbconfig"
+require_relative 'spec_helper'
+require 'open3'
+require 'rbconfig'
 
-describe "mock hexspace without driver" do
-  let(:ruby) { RbConfig.ruby }
-  let(:repo_root) { File.expand_path("..", __dir__) }
+describe 'mock hexspace without driver' do
+  let(:ruby){ RbConfig.ruby }
+  let(:repo_root){ File.expand_path('..', __dir__) }
 
   def run_ruby(code)
     Open3.capture3(
-      {"RUBYOPT"=>nil.to_s, "BUNDLE_GEMFILE"=>nil.to_s},
+      { 'RUBYOPT' => nil.to_s, 'BUNDLE_GEMFILE' => nil.to_s },
       ruby,
-      "-Ilib",
-      "-e",
+      '-Ilib',
+      '-e',
       code,
-      :chdir=>repo_root,
+      chdir: repo_root,
     )
   end
 
-  it "loads shared hexspace support without requiring the hexspace gem" do
+  it 'loads shared hexspace support without requiring the hexspace gem' do
     code = <<~RUBY
       module Kernel
         alias __orig_require__ require
@@ -37,7 +37,8 @@ describe "mock hexspace without driver" do
     RUBY
 
     stdout, stderr, status = run_ruby(code)
-    status.success?.must_equal true, "stdout=#{stdout}\nstderr=#{stderr}"
-    stdout.must_match(/WITH `x` AS/)
+
+    _(status.success?).must_equal true, "stdout=#{stdout}\nstderr=#{stderr}"
+    _(stdout).must_match(/WITH `x` AS/)
   end
 end

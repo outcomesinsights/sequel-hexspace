@@ -8,11 +8,11 @@ require 'hexspace'
 if defined?(Thrift::Bytes) && (spec = Gem.loaded_specs['thrift']) && spec.version < Gem::Version.new('0.23')
   module Thrift
     module Bytes
-      def self.empty_byte_buffer(size = nil)
-        if size && size > 0
+      def self.empty_byte_buffer(size=nil)
+        if size&.positive?
           "\0".b * size
         else
-          "".b
+          ''.b
         end
       end
     end
