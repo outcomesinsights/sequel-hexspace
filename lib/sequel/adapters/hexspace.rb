@@ -1,6 +1,24 @@
 require_relative 'shared/hexspace'
 require 'hexspace'
 
+# Backport upstream fix (THRIFT-5909, PR #3270) for thrift 0.22.0 on Ruby 3.4+.
+# Thrift::Bytes.empty_byte_buffer calls force_encoding on string literals,
+# which triggers "literal string will be frozen in the future" warnings.
+# Remove this once thrift > 0.22.0 is released with the fix.
+if defined?(Thrift::Bytes) && (spec = Gem.loaded_specs['thrift']) && spec.version < Gem::Version.new('0.23')
+  module Thrift
+    module Bytes
+      def self.empty_byte_buffer(size = nil)
+        if size && size > 0
+          "\0".b * size
+        else
+          "".b
+        end
+      end
+    end
+  end
+end
+
 module Sequel
   module Hexspace
     class Database < Sequel::Database
