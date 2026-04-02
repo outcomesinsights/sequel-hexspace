@@ -7,8 +7,10 @@ describe 'mock hexspace without driver' do
   let(:repo_root){ File.expand_path('..', __dir__) }
 
   def run_ruby(code)
+    gem_path = Gem.path.join(File::PATH_SEPARATOR)
     Bundler.with_unbundled_env do
       Open3.capture3(
+        { 'GEM_PATH' => gem_path },
         ruby,
         '-Ilib',
         '-e',
