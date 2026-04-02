@@ -7,14 +7,15 @@ describe 'mock hexspace without driver' do
   let(:repo_root){ File.expand_path('..', __dir__) }
 
   def run_ruby(code)
-    Open3.capture3(
-      { 'RUBYOPT' => nil.to_s, 'BUNDLE_GEMFILE' => nil.to_s },
-      ruby,
-      '-Ilib',
-      '-e',
-      code,
-      chdir: repo_root,
-    )
+    Bundler.with_unbundled_env do
+      Open3.capture3(
+        ruby,
+        '-Ilib',
+        '-e',
+        code,
+        chdir: repo_root,
+      )
+    end
   end
 
   it 'loads shared hexspace support without requiring the hexspace gem' do
