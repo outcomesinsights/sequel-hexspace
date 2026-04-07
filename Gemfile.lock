@@ -10,7 +10,7 @@ GEM
   specs:
     ast (2.4.3)
     base64 (0.3.0)
-    bigdecimal (4.0.1)
+    bigdecimal (4.1.1)
     childprocess (5.1.0)
       logger (~> 1.5)
     docile (1.4.1)
@@ -23,7 +23,7 @@ GEM
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
     logger (1.7.0)
-    minitest (6.0.2)
+    minitest (6.0.3)
       drb (~> 2.0)
       prism (~> 1.5)
     minitest-global_expectations (1.0.2)
@@ -63,7 +63,7 @@ GEM
       rubocop (>= 1.75.0, < 2.0)
       rubocop-ast (>= 1.38.0, < 2.0)
     ruby-progressbar (1.13.0)
-    sequel (5.102.0)
+    sequel (5.103.0)
       bigdecimal
     simplecov (0.22.0)
       docile (~> 1.1)
