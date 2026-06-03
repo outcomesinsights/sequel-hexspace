@@ -1,8 +1,6 @@
 {
   "database": "dolt",
   "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_server_port": 3308,
-  "dolt_database": "beads_sequel_hexspace",
+  "dolt_mode": "embedded",
   "project_id": "e996a01d-e9ae-4d0c-95d7-3a40270789e8"
 }
