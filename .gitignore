@@ -1,6 +1,16 @@
 coverage/
 .claude/
 
+# Gem build artifacts
+/pkg/
+/checksums/
+
+# Beads local sync state
+.beads/export-state.json
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Claude agent scratch (test logs, etc.) — not for commit
+claude_stuff/
