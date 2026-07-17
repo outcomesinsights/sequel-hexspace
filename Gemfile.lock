@@ -4,6 +4,7 @@ PATH
     sequel-hexspace (1.0.1)
       hexspace (>= 0.2.1)
       sequel (~> 5.0)
+      thrift (>= 0.18, < 0.24)
 
 GEM
   remote: https://rubygems.org/
@@ -65,7 +66,8 @@ GEM
     sequel (5.106.0)
       bigdecimal
     simplecov (1.0.1)
-    thrift (0.22.0)
+    thrift (0.23.0)
+      logger
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
     unicode-emoji (4.2.0)
