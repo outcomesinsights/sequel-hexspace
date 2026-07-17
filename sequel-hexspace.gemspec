@@ -23,5 +23,5 @@ END
   s.add_development_dependency("minitest-global_expectations")
   s.add_development_dependency('rubocop', '~> 1.0')
   s.add_development_dependency('rubocop-minitest', '~> 0.25')
-  s.add_development_dependency('simplecov', '~> 0.22')
+  s.add_development_dependency('simplecov', '~> 1.0')
 end
