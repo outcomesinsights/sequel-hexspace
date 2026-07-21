@@ -20,7 +20,7 @@ END
   # hexspace's generated Thrift client calls handle_exception, which thrift 0.24
   # removed -> NoMethodError on every Spark connection (Sequel::DatabaseConnectionError).
   # Pin below 0.24 until the hexspace gem supports thrift 0.24.
-  s.add_dependency('thrift', '>= 0.18', '< 0.24')
+  s.add_dependency('thrift', '>= 0.18', '< 0.25')
   s.add_development_dependency('rake')
   s.add_development_dependency("minitest", '~> 6.0')
   s.add_development_dependency("minitest-hooks")
