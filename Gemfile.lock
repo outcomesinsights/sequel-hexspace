@@ -63,7 +63,7 @@ GEM
       rubocop (>= 1.75.0, < 2.0)
       rubocop-ast (>= 1.38.0, < 2.0)
     ruby-progressbar (1.13.0)
-    sequel (5.106.0)
+    sequel (5.107.0)
       bigdecimal
     simplecov (1.0.3)
     thrift (0.24.0)
