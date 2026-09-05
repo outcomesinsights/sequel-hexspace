@@ -17,9 +17,11 @@ to use this adapter.
 END
   s.add_dependency('sequel', '~> 5.0')
   s.add_dependency('hexspace', '>= 0.2.1')
-  # hexspace's generated Thrift client calls handle_exception, which thrift 0.24
-  # removed -> NoMethodError on every Spark connection (Sequel::DatabaseConnectionError).
-  # Pin below 0.24 until the hexspace gem supports thrift 0.24.
+  # thrift 0.24 removed Thrift::Client#handle_exception and #reply_seqid, which
+  # hexspace's generated client still calls -> NoMethodError on every Spark
+  # connection (Sequel::DatabaseConnectionError). Both are restored by the shim
+  # in lib/sequel/adapters/hexspace.rb, covered by
+  # test/thrift_client_compat_test.rb, so 0.24 is supported rather than excluded.
   s.add_dependency('thrift', '>= 0.18', '< 0.25')
   s.add_development_dependency('rake')
   s.add_development_dependency("minitest", '~> 6.0')
