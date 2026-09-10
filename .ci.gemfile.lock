@@ -26,7 +26,8 @@ GEM
       simplecov_json_formatter (~> 0.1)
     simplecov-html (0.13.2)
     simplecov_json_formatter (0.1.4)
-    thrift (0.22.0)
+    thrift (0.24.0)
+      logger
 
 PLATFORMS
   x86_64-linux
