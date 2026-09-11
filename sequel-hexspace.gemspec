@@ -27,7 +27,9 @@ END
   s.add_development_dependency("minitest", '~> 6.0')
   s.add_development_dependency("minitest-hooks")
   s.add_development_dependency("minitest-global_expectations")
-  s.add_development_dependency('rubocop', '~> 1.0')
-  s.add_development_dependency('rubocop-minitest', '~> 0.25')
+  # rubocop/rubocop-minitest are NOT development dependencies here: they pull in
+  # gems (parallel) whose required_ruby_version floor sits above the lowest Ruby
+  # in the CI matrix, which would break `bundle install` on Ruby 3.2. They live
+  # in the Gemfile's :lint group instead, which the test jobs exclude.
   s.add_development_dependency('simplecov', '~> 1.0')
 end
