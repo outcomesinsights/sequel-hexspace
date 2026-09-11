@@ -27,7 +27,9 @@ jobs:
     name: Test Ruby ${{ matrix.ruby }}
     env:
       SPARK_VERSION: 3.5.0
-      BUNDLE_GEMFILE: .ci.gemfile
+      # The linters' transitive deps have a Ruby floor above this matrix's
+      # lowest Ruby; an excluded group escapes bundler's ruby-version check.
+      BUNDLE_WITHOUT: lint
     steps:
       - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
