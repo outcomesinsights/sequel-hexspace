@@ -313,10 +313,12 @@ This is optional, but useful if load order gets messy.
 ### New tests
 
 1. `test/mock_without_driver_test.rb`
+
    - blocks `require 'hexspace'`
    - verifies `mock://hexspace` still works
 
 2. Add new examples to [`test/sql_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/sql_test.rb)
+
    - `Sequel.connect('mock://hexspace')`
    - `Sequel.mock(host: :hexspace)`
 
