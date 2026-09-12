@@ -14,14 +14,14 @@ bundle-update *ARGS:
 
 # Rewrite files to canonical format. Run deliberately; never from a hook.
 fmt:
-    bundle exec standardrb --fix || bundle exec rubocop -a
+    bundle exec rubocop -a
     just --fmt --unstable
     git ls-files "*.md" | xargs -r mdformat
 
 # Report format drift without changing anything. This is what the hooks run —
 # a formatter that rewrites files mid-commit changes what you already reviewed.
 fmt-check:
-    bundle exec standardrb --no-fix || bundle exec rubocop
+    bundle exec rubocop
     just --fmt --check --unstable
     git ls-files "*.md" | xargs -r mdformat --check
 
