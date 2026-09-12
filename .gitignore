@@ -5,6 +5,14 @@ coverage/
 /pkg/
 /checksums/
 
+# Bundler's per-project config. Machine-local by nature (absolute paths, local
+# overrides), and older bundler PERSISTS flags here: one `bundle install
+# --without lint` writes an exclusion that every later command in this tree
+# silently inherits, so `bundle exec rubocop` then fails with "rubocop not
+# found". Use the BUNDLE_WITHOUT env var instead, which is what CI sets and
+# what leaves no residue. Never commit this file.
+.bundle/
+
 # Beads local sync state
 .beads/export-state.json
 
