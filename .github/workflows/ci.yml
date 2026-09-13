@@ -1,6 +1,14 @@
 name: CI
 
-on: [push, pull_request]
+# Pushing to a branch with an open PR fires BOTH `push` and `pull_request`, so a
+# bare `on: [push, pull_request]` ran the whole matrix twice per push and a third
+# time on merge. Limiting `push` to main leaves one run per PR push and one on
+# merge. Coverage is unchanged; only the duplicate goes away. The concurrency
+# group below does not help here — push and pull_request are different refs.
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
