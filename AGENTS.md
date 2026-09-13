@@ -153,3 +153,34 @@ For more details, see README.md and docs/QUICKSTART.md.
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+
+## This repo expects a local CI gate before pushing
+
+`git push` here is meant to run `just pre-push` first — `fmt-check`, the full test
+suite, and `hygiene` — because this repo's GitHub Actions minutes are billed and a
+red CI run costs money a local run would have saved. The contract is: if
+`just pre-push` passes, CI passes.
+
+**The gate is NOT part of the checkout.** It lives in `.git/hooks/pre-push`, which
+git does not track, so a fresh clone has no gate until one is installed. Nothing
+else in the repo will tell you it is missing. Check before you rely on it:
+
+```sh
+git config core.hooksPath          # where git is actually looking
+cat "$(git rev-parse --git-path hooks)/pre-push"
+```
+
+A working hook chains this repo's beads hook (by path, so beads keeps ownership of
+its own file) and then runs `just pre-push`. If beads' hook is not chained, its
+`bd dolt push` stops running and beads silently stop syncing to the Dolt remote —
+that failure is invisible until another host is found to be missing work.
+
+If no gate is installed, run `just pre-push` by hand before pushing.
+
+**The suite needs a live Spark Thrift server on `127.0.0.1:10000`.** Every test file
+connects at load (`test/spec_helper.rb`), so there is no subset that runs without
+one; with no server, the gate cannot pass at all. That is accepted — development
+happens on a host that runs one. An aborted run can leave tables behind in the
+`sequel_hexspace_test` database, and every later run then fails with
+`TABLE_OR_VIEW_ALREADY_EXISTS` until they are dropped; two concurrent runs collide
+the same way. Read that as a stale database, not a regression.
