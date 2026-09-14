@@ -29,25 +29,33 @@ fmt:
     just --fmt --unstable
     git ls-files "*.md" | xargs -r mdformat
 
-# Report format drift without changing anything. This is what the hooks run —
-# a formatter that rewrites files mid-commit changes what you already reviewed.
+# A formatter that rewrites files mid-commit changes what you already reviewed,
+# so the hooks run this instead of `fmt`.
+#
+# Report format drift without changing anything.
 fmt-check:
     bundle exec rubocop
     just --fmt --check --unstable
     git ls-files "*.md" | xargs -r mdformat --check
 
-# What actually runs before a push. Defaults to the complete `ci`; point it at
-# something smaller ONLY where running complete CI locally is impractical.
+# Defaults to the complete `ci`; point it at something smaller ONLY where
+# running complete CI locally is impractical.
+#
+# What actually runs before a push.
 pre-push: ci
 
-# Runs on every commit, so it must stay FAST — a sub-minute budget. Tests belong
-# here when they fit; lint alone when they do not. fmt-check never rewrites.
+# Must stay FAST — a sub-minute budget, since it runs on every commit. Tests
+# belong here when they fit; lint alone when they do not.
+#
+# What runs before every commit.
 pre-commit: fmt-check lint hygiene
 
-# Content checks inherited from overcommit when it was removed (2026-09-12):
-# MergeConflicts, YamlSyntax, JsonSyntax. RuboCop and the test target were already
-# covered by fmt-check/lint/test; HardTabs and TrailingWhitespace were dropped because
-# they fight shfmt, .tsv, and generated files. See habituate/standards.md.
+# Inherited from overcommit when it was removed on 2026-09-12: MergeConflicts,
+# YamlSyntax, JsonSyntax. Its RuboCop and test targets were already covered by
+# fmt-check/lint/test. HardTabs and TrailingWhitespace were deliberately dropped
+# because they fight shfmt, .tsv files, and generated output.
+#
+# Check for conflict markers and malformed YAML/JSON.
 hygiene:
     #!/usr/bin/env bash
     set -uo pipefail
