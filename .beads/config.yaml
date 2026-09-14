@@ -66,3 +66,7 @@ sync:
 # - linear.api-key
 # - github.org
 # - github.repo
+
+# Beads sync through the git-backed Dolt remote at refs/dolt/data.
+# This line selects that path; the pre-push gate drives it.
+sync.remote: "git+https://github.com/outcomesinsights/sequel-hexspace.git"
