@@ -4,8 +4,19 @@ test: lint _test
 lint:
     bundle exec rubocop
 
+# The suite runs under TZ=UTC to match CI's environment, and it matters: Spark's
+# session timezone is Etc/UTC, so on a host west of UTC the server is already on
+# the next date for part of the evening and the CURRENT_DATE test compares it
+# against a local Date.today that disagrees. That failed a docs-only push on
+# 2026-09-12 and would fail every day between 17:00 and midnight Pacific, while
+# CI — whose runners are UTC — stayed green. A gate that rejects what CI accepts
+# is one people learn to bypass.
+#
+# This makes the LOCAL gate blind to genuine client/server timezone divergence.
+# What this adapter should do when the two differ is a real question and is not
+# answered here.
 _test:
-    bundle exec rake test
+    TZ=UTC bundle exec rake test
 
 ci: fmt-check test hygiene
 
