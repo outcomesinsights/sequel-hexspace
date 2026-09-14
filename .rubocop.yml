@@ -5,7 +5,12 @@ plugins:
 
 AllCops:
   TargetRubyVersion: 4.0
-  NewCops: enable
+  # Deliberately `disable`, not `enable`: with `enable`, a rubocop or plugin
+  # bump switches its new cops on by itself and reds the build against code
+  # nobody touched (rubocop-rspec 3.10.2 did exactly that to t_shank). New
+  # cops are adopted on purpose, in a periodic cross-repo pass -- not never,
+  # and not whenever Dependabot happens to fire. Decided 2026-09-12.
+  NewCops: disable
   SuggestExtensions: false
   Exclude:
     - 'vendor/**/*'
