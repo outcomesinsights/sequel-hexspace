@@ -12,7 +12,7 @@ This plan is written for a less capable agent and includes code-shape recommenda
 
 ## Why This Refactor Exists
 
-Today [`lib/sequel/adapters/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/hexspace.rb) begins with:
+Today [`lib/sequel/adapters/hexspace.rb`](../lib/sequel/adapters/hexspace.rb) begins with:
 
 ```ruby
 require 'hexspace'
@@ -33,11 +33,11 @@ So the missing piece is not a full rewrite. The missing piece is giving Hexspace
 
 ## Current Files Involved
 
-- [`lib/sequel/adapters/shared/spark.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/shared/spark.rb)
-- [`lib/sequel/adapters/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/hexspace.rb)
-- [`test/sql_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/sql_test.rb)
-- [`test/database_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/database_test.rb)
-- [`test/spec_helper.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/spec_helper.rb)
+- [`lib/sequel/adapters/shared/spark.rb`](../lib/sequel/adapters/shared/spark.rb)
+- [`lib/sequel/adapters/hexspace.rb`](../lib/sequel/adapters/hexspace.rb)
+- [`test/sql_test.rb`](../test/sql_test.rb)
+- [`test/database_test.rb`](../test/database_test.rb)
+- [`test/spec_helper.rb`](../test/spec_helper.rb)
 
 ## Design Choice
 
@@ -79,7 +79,7 @@ After the refactor, these should be true:
 
 Create a new file:
 
-- [`lib/sequel/adapters/shared/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/shared/hexspace.rb)
+- [`lib/sequel/adapters/shared/hexspace.rb`](../lib/sequel/adapters/shared/hexspace.rb)
 
 Recommended initial implementation:
 
@@ -131,7 +131,7 @@ The wrapper-module version is safer if there is any doubt.
 
 ### Step 2: Stop requiring the real driver at top-level shared load points
 
-Edit [`lib/sequel/adapters/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/hexspace.rb).
+Edit [`lib/sequel/adapters/hexspace.rb`](../lib/sequel/adapters/hexspace.rb).
 
 Change the top to:
 
@@ -156,7 +156,7 @@ The important point is:
 
 Do not move `connect` logic into the shared layer.
 
-This is real-driver-only code and should stay in [`lib/sequel/adapters/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/hexspace.rb):
+This is real-driver-only code and should stay in [`lib/sequel/adapters/hexspace.rb`](../lib/sequel/adapters/hexspace.rb):
 
 ```ruby
 ALLOWED_CLIENT_KEYWORDS = ::Hexspace::Client.instance_method(:initialize).parameters.map(&:last).freeze
@@ -173,7 +173,7 @@ Likewise, anything that directly references `::Hexspace` classes must remain out
 
 ### Step 4: Support mock Hexspace identity in tests
 
-Right now [`test/sql_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/sql_test.rb) uses:
+Right now [`test/sql_test.rb`](../test/sql_test.rb) uses:
 
 ```ruby
 @db = Sequel.connect('mock://spark')
@@ -211,7 +211,7 @@ end
 
 Add a new file:
 
-- [`test/mock_without_driver_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/mock_without_driver_test.rb)
+- [`test/mock_without_driver_test.rb`](../test/mock_without_driver_test.rb)
 
 Use a subprocess that blocks `require 'hexspace'`.
 
@@ -266,7 +266,7 @@ The exact harness can vary. The required behavior cannot.
 
 ### Step 6: Separate mock tests from integration tests more clearly
 
-Right now [`test/spec_helper.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/spec_helper.rb) eagerly creates:
+Right now [`test/spec_helper.rb`](../test/spec_helper.rb) eagerly creates:
 
 ```ruby
 DB = Sequel.connect(ENV['SEQUEL_INTEGRATION_URL'] || 'hexspace:///sequel_hexspace_test')
@@ -291,7 +291,7 @@ Do this only if needed.
 
 Consider adding:
 
-- [`lib/sequel/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/hexspace.rb)
+- [`lib/sequel/hexspace.rb`](../lib/sequel/hexspace.rb)
 
 This can be a lightweight namespace file similar to `lib/sequel/duckdb.rb`.
 
@@ -317,24 +317,24 @@ This is optional, but useful if load order gets messy.
    - blocks `require 'hexspace'`
    - verifies `mock://hexspace` still works
 
-2. Add new examples to [`test/sql_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/sql_test.rb)
+2. Add new examples to [`test/sql_test.rb`](../test/sql_test.rb)
 
    - `Sequel.connect('mock://hexspace')`
    - `Sequel.mock(host: :hexspace)`
 
 ### Existing tests that should remain integration tests
 
-- [`test/database_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/database_test.rb)
-- [`test/dataset_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/dataset_test.rb)
-- [`test/prepared_statement_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/prepared_statement_test.rb)
-- [`test/schema_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/schema_test.rb)
-- [`test/type_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/type_test.rb)
+- [`test/database_test.rb`](../test/database_test.rb)
+- [`test/dataset_test.rb`](../test/dataset_test.rb)
+- [`test/prepared_statement_test.rb`](../test/prepared_statement_test.rb)
+- [`test/schema_test.rb`](../test/schema_test.rb)
+- [`test/type_test.rb`](../test/type_test.rb)
 
 ### Existing tests that already represent the shared SQL behavior
 
-- [`test/sql_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/sql_test.rb)
-- [`test/date_arithmetic_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/date_arithmetic_test.rb)
-- [`test/timezone_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/timezone_test.rb)
+- [`test/sql_test.rb`](../test/sql_test.rb)
+- [`test/date_arithmetic_test.rb`](../test/date_arithmetic_test.rb)
+- [`test/timezone_test.rb`](../test/timezone_test.rb)
 
 Those should be expanded to confirm the same SQL behavior under Hexspace mock identity.
 
@@ -342,18 +342,18 @@ Those should be expanded to confirm the same SQL behavior under Hexspace mock id
 
 ### Files likely added
 
-- [`lib/sequel/adapters/shared/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/shared/hexspace.rb)
-- [`test/mock_without_driver_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/mock_without_driver_test.rb)
+- [`lib/sequel/adapters/shared/hexspace.rb`](../lib/sequel/adapters/shared/hexspace.rb)
+- [`test/mock_without_driver_test.rb`](../test/mock_without_driver_test.rb)
 
 ### Files likely edited
 
-- [`lib/sequel/adapters/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/adapters/hexspace.rb)
-- [`test/sql_test.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/sql_test.rb)
+- [`lib/sequel/adapters/hexspace.rb`](../lib/sequel/adapters/hexspace.rb)
+- [`test/sql_test.rb`](../test/sql_test.rb)
 
 ### Files only if needed
 
-- [`lib/sequel/hexspace.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/lib/sequel/hexspace.rb)
-- [`test/spec_helper.rb`](/home/ryan/projects/outins/jigsaw/main/gems/sequel-hexspace/test/spec_helper.rb)
+- [`lib/sequel/hexspace.rb`](../lib/sequel/hexspace.rb)
+- [`test/spec_helper.rb`](../test/spec_helper.rb)
 
 ## Verification Plan
 
