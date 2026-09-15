@@ -19,6 +19,6 @@ gem 'base64'
 # `bundle exec rubocop` starts failing with "rubocop not found". (Bundler 4.0
 # removed the flag outright.)
 group :lint do
-  gem 'rubocop', '~> 1.0'
+  gem 'rubocop', '~> 1.91'
   gem 'rubocop-minitest', '~> 0.25'
 end
