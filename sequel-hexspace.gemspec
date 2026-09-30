@@ -6,9 +6,9 @@ Gem::Specification.new do |s|
   s.rdoc_options += ["--quiet", "--line-numbers", "--inline-source", '--title', 'sequel-hexspace: Sequel adapter for hexspace driver and Apache Spark database', '--main', 'README']
   s.license = "MIT"
   s.summary = "Sequel adapter for hexspace driver and Apache Spark database"
-  s.author = "Jeremy Evans"
-  s.email = "code@jeremyevans.net"
-  s.homepage = "https://github.com/jeremyevans/sequel-hexspace.git"
+  s.authors = ["Jeremy Evans", "Ryan Duryea"]
+  s.email = "aguynamedryan@gmail.com"
+  s.homepage = "https://github.com/outcomesinsights/sequel-hexspace"
   s.files = %w(LICENSE README) + Dir["lib/**/*.rb"]
   s.description = <<END
 This is a hexspace adapter for Sequel, designed to be used with Spark (not
