@@ -1,0 +1,77 @@
+name: Release
+
+# Trusted Publishing: this workflow is registered as sequel-hexspace's trusted
+# publisher on rubygems.org (owner outcomesinsights, repo sequel-hexspace,
+# workflow release.yml, environment release), so it mints a short-lived,
+# push-scoped token via GitHub's OIDC provider at run time. There is no
+# RUBYGEMS_API_KEY secret in this repo and there must never be one — the point of
+# the arrangement is that no long-lived credential exists to leak, rotate, or tie
+# the gem to one person's machine.
+#
+# To cut a release: bump s.version in the gemspec, land it on main, wait for CI
+# to go green, then push a matching tag (`git tag v1.0.2 && git push origin
+# v1.0.2`). Anyone with write access to the repo can do that; being a gem owner
+# on rubygems.org is not required.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  # ci.yml runs on pushes to main and on PRs — never on a tag. Without this job a
+  # tag pointing at an untested commit would publish an unbuilt, untested gem,
+  # and a yank is the only way back out. So require that the exact commit being
+  # tagged already has a successful CI run of its own.
+  #
+  # This blocks a tag pushed in the same breath as the commit, while CI is still
+  # running. That is the intended behaviour, not a bug: re-run this workflow once
+  # CI finishes. It fails closed — an API hiccup blocks the release rather than
+  # waving it through.
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Require a green CI run for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          count=$(gh api \
+            "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&status=success" \
+            --jq '.total_count')
+          echo "Successful CI runs for $SHA: $count"
+          if [[ "$count" -lt 1 ]]; then
+            echo "::error::No successful CI run for $SHA. Land the commit on main, let CI pass, then re-run this workflow."
+            exit 1
+          fi
+
+  push:
+    needs: [verify]
+    runs-on: ubuntu-latest
+
+    # Required by the OIDC token exchange. Scoped to this job rather than the
+    # workflow, per RubyGems' guidance.
+    permissions:
+      contents: write
+      id-token: write
+
+    # Must match the environment registered with the trusted publisher, or the
+    # token exchange is refused. It also gives the repo a place to hang a
+    # required reviewer on releases without touching this file.
+    environment: release
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+          bundler-cache: true
+
+      # Builds from the Rakefile's bundler/gem_tasks and pushes with the
+      # short-lived token. No credentials are passed in.
+      - uses: rubygems/release-gem@v1
