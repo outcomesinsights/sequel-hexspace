@@ -4,7 +4,7 @@ title: Offer ankane/hexspace an upstream fix for thrift 0.24 support
 status: captured
 type: exploration
 created_at: 2026-09-05T18:58:14.330453+00:00
-updated_at: 2026-09-05T18:58:14.330453+00:00
+updated_at: 2026-09-30T14:13:24.767712+00:00
 tags:
   - cutting
 ---
@@ -26,3 +26,35 @@ tags:
 - Nothing was posted. Opening the issue would go out under Ryan's GitHub account, so it needs his explicit go.
 
 **Open:** Do we open the issue at all, and if so does the offer lead with shape (1) or (2)? Secondary: if ankane doesn't respond (plausible given the repo's cadence), do we just keep the shim indefinitely, or vendor/fork hexspace? The shim keeps thrift 0.23 semantics -- it does not add 0.24's stricter checks for invalid message type and wrong method name -- so staying on it forever means permanently declining those checks.
+
+## Added 2026-09-30: consuming the PR from a git source does not work
+
+Ryan asked whether we could send the fix upstream and then *consume our own PR*
+in the meantime, to avoid pinning anything. Checked, and the mechanism does not
+exist in the shape wanted:
+
+- `Gem::Specification#add_dependency` has no git/branch option. A published gem
+  cannot declare a git dependency; only a Gemfile can. So sequel-hexspace's own
+  Gemfile could point at a fork for its own CI, but every consumer --
+  conceptql, t_shank, the Rails app -- would need the identical `git:` line in
+  its own Gemfile, and each lock would then pin a SHA on our fork. That is more
+  pinning spread over more repos, and it breaks anyone installing
+  sequel-hexspace from rubygems.org.
+- Merged upstream is not enough either: we depend on a *released* hexspace.
+  hexspace 0.3.0 (Apr 2025) is still latest on rubygems as of 2026-09-30, still
+  declaring `thrift >= 0.18`, and still zero issues or PRs mentioning thrift.
+  The repo is alive (pushed 2026-09-21) but the generated client is untouched
+  since 2023-05.
+- Premise correction: nothing is frozen today. There is no pinned Gemfile.lock.
+  What we carry is the ~12-line shim plus the gemspec's `thrift >= 0.18, < 0.25`
+  ceiling. The shim IS the "for now", and it costs consumers nothing.
+
+So the upstream PR is hygiene -- it eventually lets us delete the shim and lift
+the ceiling -- not a way to unblock anything. It does not change what we ship in
+the meantime, which means the issue can be opened whenever, with no schedule
+pressure.
+
+Residual cost of standing still, stated plainly: the shim keeps thrift 0.23
+semantics, so we permanently decline 0.24's stricter invalid-message-type and
+wrong-method-name checks, and the `< 0.25` ceiling means thrift 0.25 will need a
+fresh look when it lands.
