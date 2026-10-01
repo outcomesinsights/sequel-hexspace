@@ -1,0 +1,156 @@
+# git-cliff config for drafting a CHANGELOG.md section and picking the next
+# version. See https://git-cliff.org/docs/configuration
+#
+#   git-cliff --bumped-version      # next version from commits since the last v* tag
+#   git-cliff --unreleased --bump   # the section to paste into CHANGELOG.md
+#
+# CHANGELOG.md IS NOT GENERATED FROM THIS. The config only ever drafts; a human
+# reads the draft, edits it, and pastes it in. Do not run with `--prepend
+# CHANGELOG.md` or `-o CHANGELOG.md`, and do not wire either into a hook or a
+# workflow.
+#
+# Why draft-only, rather than letting cliff own the file from 2.1.0 onward or
+# append beneath the existing entries: the 2.0.0 section (462fca9) carries prose
+# no generator can produce -- a "Note on the gap since 1.0.0" recording that 1.0.1
+# was tagged but never published, so eighteen months of work reached users for the
+# first time in a single release. Ownership or appending puts that paragraph one
+# careless flag away from being overwritten, or orphaned above a machine-written
+# section that silently contradicts it. Draft-only also suits what this generator
+# actually emits (see the `^fix` note below): the draft needs an editor, so the
+# design should not pretend otherwise.
+#
+# The headings below deliberately match what CHANGELOG.md already uses -- `## X.Y.Z
+# (YYYY-MM-DD)` and `### Breaking` / `### Added` / `### Fixed` / `### Changed`, not
+# the `## [X.Y.Z] - date` of the sibling gems' configs -- so a pasted draft reads
+# as part of the same file. The blank line after each heading is there because
+# `just fmt-check` runs mdformat over every tracked *.md and wants one, so the
+# draft's STRUCTURE pastes in clean. Its prose may not: a multi-paragraph
+# BREAKING CHANGE body collapses to one line with doubled spaces at the old
+# paragraph breaks, which mdformat rewrites. Run `just fmt` after pasting.
+#
+# Only changes to the shipped gem count. Tooling, CI, tests, docs and dependency
+# bumps are skipped, so a week of nothing but those yields no commits, no section
+# and no version bump. A breaking change is never skipped, whatever its type.
+
+[changelog]
+header = ""
+body = """
+{%- if commits | length == 0 -%}
+{#- An empty range renders nothing at all. Without this guard a deps-only range
+    still emits a bare `## 2.0.0 (today)` heading naming the version already
+    published -- precisely the thing somebody pastes in by reflex. No commits, no
+    section. -#}
+{%- else -%}
+{%- if version -%}
+## {{ version | trim_start_matches(pat="v") }} ({{ timestamp | date(format="%Y-%m-%d") }})
+{% else -%}
+## Unreleased
+{% endif %}
+{%- set breaking = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking | length > 0 %}
+### Breaking
+
+{% for commit in breaking -%}
+- {{ commit.message | split(pat="\\n") | first | upper_first | trim }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/outcomesinsights/sequel-hexspace/commit/{{ commit.id }})){% if commit.breaking_description and commit.breaking_description != commit.message %}: {{ commit.breaking_description | replace(from="\n", to=" ") | trim }}{% endif %}
+{% endfor %}
+{%- endif -%}
+{% for group, commits in commits | filter(attribute="breaking", value=false) | group_by(attribute="group") %}
+### {{ group }}
+
+{% for commit in commits -%}
+- {{ commit.message | split(pat="\\n") | first | upper_first | trim }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/outcomesinsights/sequel-hexspace/commit/{{ commit.id }}))
+{% endfor %}
+{%- endfor %}
+{%- endif -%}
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+# This pair is what keeps the pre-conventional history harmless. Commits before
+# v1.0.0 are the original author's plain imperative subjects ("Support VALUES
+# inline table statement") with no type, and this repo also merges bead branches
+# with --no-ff, giving a "Merge bead sequel-hexspace-xxx: ..." commit per piece of
+# work. Both fail conventional parsing and are dropped here, BEFORE any
+# commit_parser runs -- measured 2026-10-01: a 14-commit pre-v1.0.0 range and the
+# 3 merges in v2.0.0..HEAD all reported "skipped due to parse error" and rendered
+# nothing, so the `.*` catch-all below never sees them and an explicit `^Merge`
+# skip rule would be dead config. Dropping the merges loses nothing, since cliff
+# walks all parents and the branch's own typed commits are already in the range.
+#
+# Consequence worth stating: this config is only claimed to work for ranges
+# starting at v1.0.0 or later. Earlier releases are described by hand in
+# CHANGELOG.md and are not regenerable from commit messages.
+filter_unconventional = true
+filter_commits = true
+# Load-bearing, not decoration. A `!` or BREAKING CHANGE commit is kept -- and
+# bumps the version -- even when its type is one skipped below, e.g. a `build!:`
+# raising the Ruby floor. Measured 2026-10-01 against 462fca9 (`feat!: require
+# Ruby >= 3.3`) with `^feat` forced into the skip list: true gives v3.0.0, false
+# gives "nothing to bump". So without this a breaking change filed under a
+# tooling type ships no release at all.
+protect_breaking_commits = true
+# The only tags here are v1.0.0 and v2.0.0. Anchored at both ends so a tag that
+# merely starts with a version (a `v2.0.0-rc1`, were one ever cut) cannot pass for
+# a release and move the baseline cliff measures the next version from.
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+topo_order = false
+sort_commits = "newest"
+
+# First match wins.
+commit_parsers = [
+    # Not part of the shipped gem: no changelog entry, no release. `^chore` is
+    # what covers Dependabot's `chore(deps):` and `chore(deps-dev):`, and so what
+    # keeps a deps-only range from producing a version.
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^build", skip = true },
+    { message = "^test", skip = true },
+    { message = "^style", skip = true },
+    { message = "^docs", skip = true },
+    { message = "^bd:", skip = true },
+
+    { message = "^feat", group = "Added" },
+    # Known over-inclusion, left as-is on purpose: this history has `fix(just)`,
+    # `fix(ci)`, `fix(hooks)` and `fix(lint)` commits that touch nothing shipped,
+    # and each of them will draft an entry and justify a patch bump. The
+    # alternative -- an allowlist of non-shipping scopes -- goes stale silently and
+    # fails the dangerous way, swallowing a real adapter fix. An extra patch
+    # release is cheap; a missing one is not. This is one of the things the human
+    # editing the draft is there to delete.
+    { message = "^fix", group = "Fixed" },
+    { message = "^perf", group = "Changed" },
+    { message = "^refactor", group = "Changed" },
+    { message = "^revert", group = "Changed" },
+
+    # Deliberately not a silent skip: a conventional type nobody has classified
+    # renders under its own heading rather than vanishing from the release.
+    { message = ".*", group = "Uncategorized" },
+]
+
+# ORDINARY SemVer, because sequel-hexspace is past 1.0.0 -- 2.0.0 is published. A
+# breaking change is a major bump, a feature a minor one. Both values are
+# git-cliff's defaults and are spelled out only to stop the next person copying
+# the sibling gems' configs wholesale: sequel-duckdb and sequelizer set BOTH of
+# these to `false`, which is correct for them because they are 0.x, where the
+# convention makes a breaking change a minor bump and a feature a patch. That is
+# wrong for a 2.x gem.
+#
+# One measurement, recorded so the hazard is not overstated: on git-cliff 2.13.1
+# with a current version of 2.0.0, these two settings are INERT -- flipping both
+# to `false` still answers v3.0.0 for `feat!`, v2.1.0 for `feat` and v2.0.1 for
+# `fix`. The likely reason is that the overrides only apply below 1.0.0, but that
+# was NOT demonstrated: forcing a 0.x baseline here needs a 0.x tag, and with no
+# matching tag git-cliff returns `initial_tag` outright instead of bumping from
+# it, so there was no way to test it without fabricating a tag. Treat the
+# mechanism as unverified and the measurement as the fact.
+#
+# So copying the siblings' 0.x block would not break the next release today. What
+# it would do is encode a 0.x promise in a gem that has outgrown it, and arm
+# itself the moment anything reuses this file or reads it as the house style --
+# which is reason enough to state the intended values here rather than inherit
+# them.
+[bump]
+features_always_bump_minor = true
+breaking_always_bump_major = true
