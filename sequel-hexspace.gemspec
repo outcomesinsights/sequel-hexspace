@@ -1,7 +1,13 @@
 Gem::Specification.new do |s|
   s.name = 'sequel-hexspace'
-  s.version = '1.0.1'
+  s.version = '2.0.0'
   s.platform = Gem::Platform::RUBY
+  # Must stay in step with .rubocop.yml's TargetRubyVersion and the floor of
+  # ci.yml's matrix: rubocop's Gemspec/RequiredRubyVersion cop fails the build if
+  # this and TargetRubyVersion disagree. Raised to 3.3 on 2026-10-01 when Ruby
+  # 3.2 went out of support, which is what makes this release 2.0.0 rather than
+  # 1.0.2 -- a floor is breaking for anyone resolving the gem on an older Ruby.
+  s.required_ruby_version = '>= 3.3'
   s.extra_rdoc_files = ["LICENSE"]
   s.rdoc_options += ["--quiet", "--line-numbers", "--inline-source", '--title', 'sequel-hexspace: Sequel adapter for hexspace driver and Apache Spark database', '--main', 'README']
   s.license = "MIT"
@@ -9,7 +15,7 @@ Gem::Specification.new do |s|
   s.authors = ["Jeremy Evans", "Ryan Duryea"]
   s.email = "aguynamedryan@gmail.com"
   s.homepage = "https://github.com/outcomesinsights/sequel-hexspace"
-  s.files = %w(LICENSE README) + Dir["lib/**/*.rb"]
+  s.files = %w(CHANGELOG.md LICENSE README) + Dir["lib/**/*.rb"]
   s.description = <<END
 This is a hexspace adapter for Sequel, designed to be used with Spark (not
 Hive). You can use the hexspace:// protocol in the Sequel connection URL
