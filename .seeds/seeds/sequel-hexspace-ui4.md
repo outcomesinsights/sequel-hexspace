@@ -1,10 +1,12 @@
 ---
 id: sequel-hexspace-ui4
 title: Declare required_ruby_version on sequel-hexspace, and does that force a 2.0.0?
-status: captured
+status: resolved
 type: question
 created_at: 2026-10-01T17:06:47.556389+00:00
-updated_at: 2026-10-01T17:06:47.556389+00:00
+updated_at: 2026-10-01T17:13:49.323279+00:00
+resolved_at: 2026-10-01T17:13:49.323269+00:00
+resolution: "Ryan ruled 2026-10-01: adhere to SemVer, go 2.0.0, declare >= 3.3. Both questions answered -- declare it, and accept the major bump rather than treating an EOL-Ruby floor as outside SemVer's promise. Shipped in 462fca9 via bead sequel-hexspace-prq: gemspec declares required_ruby_version >= 3.3 and version 2.0.0, lock regenerated, CHANGELOG.md added and shipped. Side finding while writing the changelog: 1.0.1 was never published, so 2.0.0 is the first release to carry ~18 months of work including the thrift 0.24 fix."
 tags:
   - ruby
   - semver
