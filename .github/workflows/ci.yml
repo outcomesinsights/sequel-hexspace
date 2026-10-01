@@ -31,12 +31,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ['3.2', '3.3', '3.4', '4.0']
+        ruby: ['3.3', '3.4', '4.0']
     name: Test Ruby ${{ matrix.ruby }}
     env:
       SPARK_VERSION: 3.5.0
-      # The linters' transitive deps have a Ruby floor above this matrix's
-      # lowest Ruby; an excluded group escapes bundler's ruby-version check.
+      # Test jobs have no business installing linters. This started as a
+      # workaround -- parallel's Ruby floor sat above the matrix's old 3.2 --
+      # and with 3.2 dropped it is now a deliberate exclusion. Keep it: parallel
+      # requires >= 3.3, exactly this matrix's floor, so there is no headroom and
+      # a parallel bump would break `bundle install` on 3.3 if the group were
+      # included. An excluded group escapes bundler's ruby-version check.
       BUNDLE_WITHOUT: lint
     steps:
       - uses: actions/checkout@v7

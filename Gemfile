@@ -8,10 +8,13 @@ gemspec
 gem 'base64'
 
 # Linters live here, not in the gemspec's development dependencies: rubocop
-# pulls in parallel, whose required_ruby_version floor is above the lowest Ruby
-# in the CI matrix. CI's test jobs set BUNDLE_WITHOUT=lint, and bundler does not
-# apply the ruby-version check to an excluded group, so Ruby 3.2 installs
-# cleanly from this one lockfile. The lint job installs everything.
+# pulls in parallel, whose required_ruby_version is >= 3.3 -- exactly the floor
+# of the CI matrix since Ruby 3.2 was dropped on 2026-10-01. That leaves no
+# headroom, so keep them out of the gemspec: CI's test jobs set
+# BUNDLE_WITHOUT=lint and bundler does not apply the ruby-version check to an
+# excluded group, which means one lockfile installs cleanly on every Ruby in the
+# matrix even if parallel raises its floor again. The lint job installs
+# everything.
 #
 # To exclude them locally, use the env var — `BUNDLE_WITHOUT=lint bundle install`
 # — not `bundle install --without lint`. The flag is persisted into .bundle/config
