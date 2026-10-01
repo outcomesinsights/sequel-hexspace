@@ -27,11 +27,46 @@ jobs:
   # running. That is the intended behaviour, not a bug: re-run this workflow once
   # CI finishes. It fails closed — an API hiccup blocks the release rather than
   # waving it through.
+  #
+  # It also asserts the tag names the version the gemspec will actually build.
+  # Nothing else ties the two together: the trigger matches any `v*` tag and
+  # release-gem builds whatever s.version says, so tagging v2.1.0 against a
+  # gemspec reading 2.0.0 would publish 2.0.0 under a v2.1.0 tag. That is
+  # currently refused only by accident, as a confusing detached-HEAD push failure
+  # downstream, which is not a check.
   verify:
     runs-on: ubuntu-latest
+
+    # An explicit permissions block sets every scope it does not name to none,
+    # so `contents: read` has to be spelled out or the checkout below cannot
+    # fetch the repo. `actions: read` is for the gh api call.
     permissions:
       actions: read
+      contents: read
     steps:
+      # Needed only so the gemspec is on disk for the version assertion below.
+      # No credentials: this job pushes nothing.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The runner's preinstalled ruby is enough — this gemspec is plain Ruby
+      # with no requires and no version file, so loading it needs nothing but
+      # RubyGems. No setup-ruby step, and no bundle.
+      - name: Require the tag to match the gemspec version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag_version="${REF_NAME#v}"
+          gemspec_version=$(ruby -e 'print Gem::Specification.load("sequel-hexspace.gemspec").version.to_s')
+          echo "Tag version: $tag_version"
+          echo "Gemspec version: $gemspec_version"
+          if [[ "$tag_version" != "$gemspec_version" ]]; then
+            echo "::error::Tag $REF_NAME means version $tag_version, but the gemspec at this commit says $gemspec_version. Bump s.version to match, or delete the tag and re-tag the right commit."
+            exit 1
+          fi
+
       - name: Require a green CI run for this commit
         env:
           GH_TOKEN: ${{ github.token }}
