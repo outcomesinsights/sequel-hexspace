@@ -15,6 +15,10 @@ Gem::Specification.new do |s|
   s.authors = ["Jeremy Evans", "Ryan Duryea"]
   s.email = "aguynamedryan@gmail.com"
   s.homepage = "https://github.com/outcomesinsights/sequel-hexspace"
+  # Makes rubygems.org refuse gem-level privileged actions (push, yank, owner
+  # changes) from an account without MFA enabled. Applies to versions published
+  # after it ships; it cannot be applied retroactively to one already out.
+  s.metadata = { 'rubygems_mfa_required' => 'true' }
   s.files = %w(CHANGELOG.md LICENSE README) + Dir["lib/**/*.rb"]
   s.description = <<END
 This is a hexspace adapter for Sequel, designed to be used with Spark (not
