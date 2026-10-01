@@ -4,7 +4,15 @@ plugins:
   - rubocop-minitest
 
 AllCops:
-  TargetRubyVersion: 4.0
+  # The OLDEST Ruby in ci.yml's matrix, not the newest and not the primary
+  # target. This is what tells rubocop which syntax exists: set to 4.0 it
+  # accepts 4.0-only syntax in a gem that still has to run on 3.3, and the
+  # breakage shows up as a failing 3.3 test job or in a user's app instead of as
+  # a lint offense. Raise it only when the matrix floor rises. If
+  # required_ruby_version is ever declared in the gemspec, the
+  # Gemspec/RequiredRubyVersion cop requires the two to agree, so they move
+  # together.
+  TargetRubyVersion: 3.3
   # Deliberately `disable`, not `enable`: with `enable`, a rubocop or plugin
   # bump switches its new cops on by itself and reds the build against code
   # nobody touched (rubocop-rspec 3.10.2 did exactly that to t_shank). New
