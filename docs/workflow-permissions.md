@@ -93,9 +93,11 @@ both tools over each, and prints the cost against this repo's real workflows).
 
 **This class fails closed.** An under-scoped permission breaks the job that holds it. For
 `release.yml` that means a release that *does not happen*; it cannot publish a bad or unsigned gem,
-because the failure lands on the checkout, long before `rubygems/release-gem` runs. The cost is a
-blocked release and a confusing error, paid by whoever cut the tag, recoverable by fixing the block
-and re-running. Nothing escapes into a published artifact and nothing needs a yank.
+because the failure lands on the checkout, which is the first step of the `push` job —
+`rubygems/configure-rubygems-credentials` does not mint a token until the fifth step, and
+`gem push` does not run until the sixth. The cost is a blocked release and a confusing error, paid
+by whoever cut the tag, recoverable by fixing the block and re-running. Nothing escapes into a
+published artifact and nothing needs a yank.
 
 A hand-rolled rule — "warn if a job has a `permissions:` block without `contents: read` and a
 `uses: actions/checkout`" — was considered and **deliberately rejected**. It would be right about
@@ -104,16 +106,72 @@ covering a single instance of it. That is the convenient-proxy detector failure,
 than an honest gap: an honest gap is written down here, where you are reading it, whereas a
 proxy gate quietly teaches everyone that green means safe.
 
-Adopting zizmor anyway, for its other audits, is a separate decision with its own cost — against
-this repo's three workflows plus `dependabot.yml` it reports 21 findings at the default persona (13
-of them `high`), led by `unpinned-uses` on every `uses:` in the repo, since nothing here is pinned
-to a SHA. None of those 21 is this defect class. That trade is not made here, and this page is not
-an argument against it.
+Adopting zizmor anyway, for its other audits, is a separate decision with its own cost, and that
+cost has fallen to nothing since this page was first written. Measured 2026-10-02, from the repo
+ROOT and not from `.github/workflows/` — pointing it at the workflows directory silently skips
+`.github/dependabot.yml` and so reports clean on a repo that has findings:
+
+```console
+$ mise x zizmor@1.30.1 -- zizmor --offline --no-progress -q .
+No findings to report. Good job! (1 ignored, 11 suppressed)
+```
+
+Exit 0. The 21 findings this paragraph used to quote were overwhelmingly `unpinned-uses`, and all
+ten `uses:` references in the repo are now pinned to a full commit SHA (`42cd4f3`, `703484f`). The
+one `ignored` is the `zizmor: ignore[adhoc-packages]` on `release.yml`'s install-and-load smoke
+test, which installs the built gem deliberately. The 11 `suppressed` sit below the default
+persona's reporting threshold; `--persona=pedantic` and `--persona=auditor` surface exactly those
+same 11 — 5 `anonymous-definition`, 3 `undocumented-permissions`, 2 `template-injection`, 1
+`concurrency-limits`, scoring 5 informational, 6 low, 0 medium, 0 high.
+
+None of the 11 is this defect class, and what is *absent* from that list makes the point better
+than any count: `excessive-permissions`, zizmor's only permissions audit, now fires **nowhere** in
+this repo at any persona, because every workflow and every job carries an explicit block. The repo
+is clean of everything the tool knows how to ask, and could still hold an under-scoped block in
+every one of those jobs. That trade is not made here, and this page is not an argument against it.
 
 ## The jobs that hold write scopes
 
-`dependabot-auto-merge.yml` holds `contents: write` and `pull-requests: write`, and `release.yml`'s
-`push` job holds `contents: write` and `id-token: write`. Narrowing those is where this defect is
-most expensive — `id-token: write` is what mints the publishing token, and a block that drops it
-fails the token exchange with a message about OIDC, not about permissions. Change them one job at a
-time, and re-read the rule above before each one.
+Every job in this repo declares its own block, and all three workflow files carry
+`permissions: {}` at the workflow level, so nothing reaches a job by inheritance. Read from the
+files on 2026-10-02:
+
+| Workflow                    | Scope        | Block                                     |
+| --------------------------- | ------------ | ----------------------------------------- |
+| `ci.yml`                    | workflow     | `{}`                                      |
+| `ci.yml`                    | `lint`       | `contents: read`                          |
+| `ci.yml`                    | `test`       | `contents: read`                          |
+| `ci.yml`                    | `ci`         | `{}`                                      |
+| `release.yml`               | workflow     | `{}`                                      |
+| `release.yml`               | `verify`     | `actions: read`, `contents: read`         |
+| `release.yml`               | `push`       | `contents: read`, `id-token: write`       |
+| `dependabot-auto-merge.yml` | workflow     | `{}`                                      |
+| `dependabot-auto-merge.yml` | `dependabot` | `contents: write`, `pull-requests: write` |
+
+Three write grants, in two jobs. `dependabot-auto-merge.yml`'s `dependabot` job holds the only
+`contents: write` left in the repo: `pull-requests: write` approves the PR, `contents: write`
+enables auto-merge, and GitHub requires the two together. `release.yml`'s `push` job holds
+`id-token: write` and otherwise only reads. It held `contents: write` when this page was written,
+needed solely by `rubygems/release-gem`'s `rake release` pushing a git tag, and that scope left
+with the action in `703484f`.
+
+Narrowing any of them is where this defect is most expensive — `id-token: write` is what mints the
+publishing token, and a block that drops it fails the token exchange with a message about OIDC, not
+about permissions. Change them one job at a time, and re-read the rule above before each one.
+
+## Keeping this page honest
+
+Three statements above were true when written and false within two days, falsified by the very work
+they describe: the reference to `rubygems/release-gem` (replaced in `703484f` by an explicit build /
+isolated install-and-load check / credentials / push sequence), the `contents: write` on
+`release.yml`'s `push` job (gone with that action), and the 21-finding zizmor count (gone once
+`42cd4f3` and `703484f` pinned every `uses:` to a SHA). They were corrected on 2026-10-02 under
+`sequel-hexspace-o8p` — the third committed page in two days overtaken by its own subject matter,
+after `CHANGELOG.md` (`sequel-hexspace-r03`) and `docs/release-setup.md` (`sequel-hexspace-94i`).
+
+The defence is that every factual claim here is reproducible, so a reader can check instead of
+trusting: the matrix comes from `./docs/permissions-gate-probe.sh`, which also prints the real-repo
+cost live rather than quoting it, and each finding count is stated beside the invocation that
+produced it. When you change a workflow, re-run both and correct the numbers here — and leave the
+matrix and the fail-closed argument whole while you do. The counts are the decoration; those two
+are the substance, and a refresh that trims the matrix to fix a count has thrown away the page.
