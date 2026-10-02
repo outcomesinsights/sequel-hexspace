@@ -2,6 +2,10 @@ name: Dependabot auto-merge
 
 on: pull_request
 
+# An explicit permissions block sets every scope it does not name to none, and
+# no linter in this repo catches one that is too narrow to function -- see
+# docs/workflow-permissions.md before narrowing this or moving it per-job. These
+# are the repo's broadest grants, so this is where that mistake costs most.
 permissions:
   contents: write
   pull-requests: write
