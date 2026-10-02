@@ -5,6 +5,11 @@ name: CI
 # time on merge. Limiting `push` to main leaves one run per PR push and one on
 # merge. Coverage is unchanged; only the duplicate goes away. The concurrency
 # group below does not help here — push and pull_request are different refs.
+#
+# Every action below is pinned to a full commit SHA with the version in a
+# comment: a tag can be moved to other code, a SHA cannot. Dependabot
+# (github-actions ecosystem, monthly) proposes the bumps, which is the intended
+# way these move. release.yml says the same thing about its own pins.
 on:
   push:
     branches: [main]
@@ -14,18 +19,47 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# No permissions block, so every job here runs on the default grant, which
-# includes the `contents: read` that each `actions/checkout` below needs. If you
-# add one, it REPLACES that default rather than adding to it, and nothing in the
-# hygiene gate will tell you what you just revoked. Read
-# docs/workflow-permissions.md first.
+# Deny by default: every scope a job does not name is none, so all three jobs
+# below declare their own block and each one is reasoned out in a comment there.
+# An explicit block REPLACES the default grant rather than adding to it --
+# including the `contents: read` that `actions/checkout` cannot work without --
+# and nothing in this repo's gate will tell you what a block revoked: actionlint
+# and zizmor were both probed against exactly that defect and both stay silent.
+# Read docs/workflow-permissions.md before editing any block below, or before
+# adding a step to any of these jobs.
+permissions: {}
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+
+    # `contents: read` is for the checkout, and is the whole of it. Nothing else
+    # in this job spends the GITHUB_TOKEN's repo scopes:
+    #
+    #   - `ruby/setup-ruby` passes `github.token` on its `token` input to
+    #     download Ruby release assets from the public ruby/ruby-builder repo. A
+    #     `permissions:` block governs this repo only, so no scope here enables
+    #     or disables that.
+    #   - `bundler-cache: true` drives the Actions cache service, which is
+    #     authenticated by the runner's own ACTIONS_RUNTIME_TOKEN and not by the
+    #     GITHUB_TOKEN; actions/cache's action.yml takes no token input at all.
+    #   - `bundle exec rubocop` touches no API.
+    #
+    # Measured in this repo rather than assumed: the v2.0.0 release ran
+    # `ruby/setup-ruby` with `bundler-cache: true` under an explicit
+    # `contents: write` + `id-token: write` block -- no `actions:` scope, no
+    # other scope -- and published successfully.
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing in this job pushes, so the checkout's credentials have no
+          # job to do; left in the local git config they can leak out through a
+          # build step or an uploaded artifact (zizmor's artipacked).
+          persist-credentials: false
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: '4.0'
           bundler-cache: true
@@ -39,6 +73,26 @@ jobs:
       matrix:
         ruby: ['3.3', '3.4', '4.0']
     name: Test Ruby ${{ matrix.ruby }}
+
+    # `contents: read` is for the checkout, and again is the whole of it. Beyond
+    # the setup-ruby and cache reasoning on the `lint` job above, this job adds
+    # two steps and neither needs a scope:
+    #
+    #   - `actions/cache` for the Spark download: same cache service, same
+    #     runtime token, no token input on the action.
+    #   - `actions/upload-artifact` for coverage: its action.yml at v7.0.1
+    #     declares no `github-token` input, because it talks to the artifact
+    #     service with the runner's ACTIONS_RUNTIME_TOKEN. Do not add
+    #     `actions: read` for it -- that is what `actions/download-artifact`
+    #     needs to reach ANOTHER run's artifacts via its `run-id` and
+    #     `github-token` inputs, which nothing here does.
+    #
+    # The Spark tarball comes from archive.apache.org and `bundle install` from
+    # rubygems.org; the Gemfile has no git sources. No step in this job calls
+    # the GitHub API.
+    permissions:
+      contents: read
+
     env:
       SPARK_VERSION: 3.5.0
       # Test jobs have no business installing linters. This started as a
@@ -49,13 +103,22 @@ jobs:
       # included. An excluded group escapes bundler's ruby-version check.
       BUNDLE_WITHOUT: lint
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This job uploads an artifact, which is the exact path by which a
+          # persisted credential escapes the runner. Nothing here pushes.
+          persist-credentials: false
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: ${{ matrix.ruby }}
+          # Stays deliberately. zizmor's cache-poisoning rule is about a job on
+          # a RELEASE trigger restoring a cache that a branch or PR run wrote;
+          # this workflow runs on push-to-main and pull_request, so it WRITES
+          # those caches rather than consuming one across a trust boundary.
+          # release.yml's publishing job is the one that sets this to false.
           bundler-cache: true
 
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/spark
           key: spark-${{ env.SPARK_VERSION }}
@@ -74,7 +137,7 @@ jobs:
           RUNNING_IN_CI: "1"
       - name: Upload Coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-ruby-${{ matrix.ruby }}
           path: coverage/
@@ -84,6 +147,16 @@ jobs:
     if: always()
     needs: [lint, test]
     runs-on: ubuntu-latest
+
+    # Genuinely nothing. The single step below is a shell script over
+    # `needs.*.result`, which the expression evaluator resolves from the run's
+    # own state before the step starts -- no checkout, no API call, no token.
+    # This is the one job here that needs no scope at all, and saying so
+    # explicitly is the point: it inherits `{}` from the workflow either way,
+    # but a reader adding a step to this job should see that the block was a
+    # decision and not an oversight.
+    permissions: {}
+
     steps:
       - name: Check CI status
         run: |
