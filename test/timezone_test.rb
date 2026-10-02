@@ -79,7 +79,7 @@ describe "Sequel timezone support" do
     t = Time.now
     @db[:t].insert(t)
     s = @db[:t].get(Sequel.cast(:t, String))
-    if o = Date._parse(s)[:offset]
+    if (o = Date._parse(s)[:offset])
       o.must_equal t.utc_offset
     end
   end

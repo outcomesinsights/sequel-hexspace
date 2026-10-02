@@ -149,8 +149,12 @@ describe "Simple Dataset operations" do
 
   it "should work correctly when returning from each without iterating over the whole result set" do
     @ds.insert(id: 2, number: 20)
+    # rubocop:disable Lint/UnreachableLoop -- breaking on the first row is the
+    # behaviour under test, not an accident: #each must return the broken-out
+    # value and must not have walked the rest of the result set.
     @ds.order(:id).each { |v| break v }.must_equal(id: 1, number: 10)
     @ds.reverse(:id).each { |v| break v }.must_equal(id: 2, number: 20)
+    # rubocop:enable Lint/UnreachableLoop
   end
 
   it "should fetch a single value correctly" do
