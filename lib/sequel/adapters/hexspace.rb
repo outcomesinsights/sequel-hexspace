@@ -42,26 +42,58 @@ end
 # invalid message type and wrong method name. Remove once hexspace regenerates
 # its client against thrift >= 0.24.
 if defined?(Thrift::Client)
-  # Both methods below are copied verbatim from thrift 0.23.0 and deliberately
-  # not restyled: keeping them byte-comparable with upstream is what makes them
-  # auditable. reply_seqid also cannot be renamed to a predicate -- hexspace's
-  # generated client calls it by that exact name.
+  # Both method bodies below are copied verbatim from thrift 0.23.0 and
+  # deliberately not restyled: keeping them byte-comparable with upstream is
+  # what makes them auditable.
+  #
+  # That is now ENFORCED rather than merely asked for. Each def is wrapped in
+  # `rubocop:disable all`, so `just fmt` -- which is `rubocop -a` -- leaves
+  # those bytes alone. Until 2026-10-02 nothing backed the claim: the methods
+  # came through that day's omakase sweep intact only because they happen to
+  # contain no single-quoted strings and no `{|x|` brace blocks, which is most
+  # of what the sweep rewrote.
+  #
+  # The paired Lint/RedundantCopDisableDirective disable is load-bearing, not
+  # decoration. That cop is, in its own words, "not disabled when disabling all
+  # cops", and nothing in these regions currently offends -- so without it
+  # rubocop reports each guard as an unnecessary disable of all cops, and that
+  # offense is autocorrectable, meaning `rubocop -a` DELETES the guard using the
+  # very command the guard exists to survive. Order is load-bearing too: the
+  # named disable must precede `disable all` and the named enable must precede
+  # `enable all`, or Lint/MissingCopEnableDirective and
+  # Lint/RedundantCopEnableDirective fire in its place. Verified against rubocop
+  # 1.91.0 by perturbing each region and running the autocorrect.
+  #
+  # The wrapping is deliberately tight -- only the two upstream defs sit inside
+  # it. The `unless` guards around them, and the rest of this adapter, are ours
+  # and stay linted; a file-level AllCops/Exclude was rejected for that reason.
+  #
+  # reply_seqid also cannot be renamed to a predicate -- hexspace's generated
+  # client calls it by that exact name.
   module Thrift
     module Client
       unless method_defined?(:handle_exception) || private_method_defined?(:handle_exception)
+        # rubocop:disable Lint/RedundantCopDisableDirective
+        # rubocop:disable all
         def handle_exception(mtype)
           if mtype == MessageTypes::EXCEPTION
             dequeue_pending_seqid
             raise_application_exception
           end
         end
+        # rubocop:enable Lint/RedundantCopDisableDirective
+        # rubocop:enable all
       end
 
       unless method_defined?(:reply_seqid) || private_method_defined?(:reply_seqid)
+        # rubocop:disable Lint/RedundantCopDisableDirective
+        # rubocop:disable all
         def reply_seqid(rseqid)
           expected_seqid = dequeue_pending_seqid
           !expected_seqid.nil? && rseqid == expected_seqid
         end
+        # rubocop:enable Lint/RedundantCopDisableDirective
+        # rubocop:enable all
       end
     end
   end
