@@ -284,11 +284,13 @@ module Sequel
       end
 
       # Emulate delete by selecting all rows except the ones being deleted
-      # into a new table, drop the current table, and rename the new
-      # table to the current table name.
+      # into a new table, then overwriting the current table with that new
+      # table's contents.
       #
       # This is designed to minimize the changes to the tests, and is
-      # not recommended for production use.
+      # not recommended for production use. It is not atomic and it has a
+      # residual failure window even after sequel-hexspace-rho hardened it --
+      # see _with_temp_table and the README section on emulated DELETE/UPDATE.
       def delete
         _with_temp_table
       end
@@ -304,8 +306,67 @@ module Sequel
       end
 
       # Build `<table>__sequel_delete_emulate` holding the rows the operation
-      # should leave behind, let the caller adjust it, then swap it in for the
-      # original table.
+      # should leave behind, let the caller adjust it, then INSERT OVERWRITE
+      # those rows back into the original table.
+      #
+      # The original table object is never dropped. That is deliberate: until
+      # 2026-10-02 this method dropped the original and renamed the temp table
+      # into its place, so a process that died in between left the named table
+      # GONE, with its rows sitting under a runtime-generated name that appears
+      # nowhere in the caller's source. See sequel-hexspace-rho.
+      #
+      # WHAT THIS STILL DOES NOT GUARANTEE -- read this before relying on it.
+      # INSERT OVERWRITE is unambiguously atomic only on an ACID table. This
+      # adapter emits USING <format> only when a caller passes :using, and the
+      # create_table below passes none, so the temp table -- and typically the
+      # caller's own table -- is whatever the metastore defaults to. Measured
+      # against this gem's test server on 2026-10-02: Provider `hive`,
+      # TextInputFormat, LazySimpleSerDe. Not ACID.
+      #
+      # It nonetheless behaved better than "not ACID" implies, and the
+      # measurements are recorded here because they bound the risk
+      # that is left:
+      #
+      #   * A job failure part way through the write does NOT truncate the
+      #     target. raise_error fired after 150k of 200k rows and the table was
+      #     left holding its FULL pre-operation contents, so the old files are
+      #     not removed up front -- the write stages and then commits.
+      #   * SIGKILLing the client at seven points across the statement never
+      #     left the table absent, empty or partial. The thriftserver carries
+      #     the statement on server-side after the client vanishes, so the table
+      #     held either its pre- or its post-operation rows every time. The same
+      #     harness against the old drop/rename sequence destroyed the table on
+      #     the first try (400,000 rows stranded under the temp name), so it was
+      #     landing in the window.
+      #
+      # What is left is the commit itself: replacing a multi-file Hive table in
+      # place is not one atomic filesystem operation, so a death of the SERVER
+      # -- not the client -- inside that commit, or a storage failure there, can
+      # still leave the table PRESENT but empty or partial, which a plain SELECT
+      # reports silently rather than loudly. That window was NOT reproduced: it
+      # needs the thriftserver killed, and this gem's test server is shared.
+      # Treat it as unquantified, not as absent.
+      #
+      # The trade is therefore deliberate and it is not free. A silently wrong
+      # read is in some ways worse than a loud table-not-found. What buys it is
+      # recoverability: an absent table is unrecoverable by anyone reading their
+      # own source, because the name holding the data appears nowhere in it,
+      # whereas the rows to keep are recoverable here at every instant -- see
+      # the ensure below. The same residual window is written down in the
+      # README, because a consumer cannot see this comment.
+      #
+      # The temp table is dropped in exactly two states, both of which make it a
+      # discardable copy:
+      #
+      #   * the overwrite never started, so the original still holds its
+      #     pre-operation contents; or
+      #   * the overwrite finished and its row count was verified against the
+      #     temp table, so the original holds the intended contents.
+      #
+      # In any other state -- a raise inside the overwrite, or a row count that
+      # disagrees with the temp table -- the temp table holds the only intact
+      # copy of the rows to keep and is left alone. That is sequel-hexspace-c5q's
+      # rule, carried over from the drop/rename sequence it was written for.
       #
       # Both the leading drop and the ensure exist because this sequence is not
       # atomic and Spark's CREATE TABLE is not idempotent, so a process that
@@ -321,30 +382,51 @@ module Sequel
       # where nothing of ours gets to run at all. Each names exactly the one
       # table this method creates and owns -- neither enumerates the server,
       # which may be shared with tables belonging to nobody here.
-      #
-      # The ensure drops the temp table only while the original is still
-      # present, so the temp table is a discardable copy. Once the original has
-      # been dropped the temp table holds the only copy of the data and must be
-      # left alone. That leaves a window -- a death between the drop and the
-      # rename loses the original table, with its rows sitting under the temp
-      # name -- which no ensure can close and which needs a non-destructive
-      # swap instead. See sequel-hexspace-rho.
       private def _with_temp_table
         n = count
         table_name = first_source_table
         tmp_name = literal(table_name).gsub('`', '') + "__sequel_delete_emulate"
         db.drop_table?(tmp_name)
         db.create_table(tmp_name, :as=>select_all.invert)
-        original_dropped = false
+        overwrite_started = false
+        overwrite_verified = false
         begin
           yield tmp_name if defined?(yield)
-          db.drop_table(table_name)
-          original_dropped = true
-          db.rename_table(tmp_name, table_name)
+
+          # Counted before the overwrite rather than after, so that what the
+          # overwrite is checked against is the intended content itself and not
+          # a number derived from the same statement being verified.
+          expected = db.from(tmp_name).count
+
+          overwrite_started = true
+          _overwrite_from_temp_table(table_name, tmp_name)
+
+          actual = db.from(table_name).count
+          unless actual == expected
+            raise Sequel::Error, "emulated delete/update of #{literal(table_name)} left #{actual} rows, " \
+                                 "expected #{expected}; the rows to keep remain in #{tmp_name}, which has " \
+                                 'deliberately not been dropped'
+          end
+
+          overwrite_verified = true
         ensure
-          db.drop_table?(tmp_name) unless original_dropped
+          db.drop_table?(tmp_name) if overwrite_verified || !overwrite_started
         end
         n
+      end
+
+      # Replace the whole contents of +table_name+ with the rows in +tmp_name+,
+      # keeping the original table object. The column list is taken from the
+      # TARGET, because INSERT OVERWRITE matches columns by position: naming them
+      # explicitly means a column order difference between the two tables would
+      # be a visible error rather than silently transposed data.
+      #
+      # Extracted so a test can stand in for it, which is the only way to pin
+      # the "temp table survives an unfinished overwrite" rule without killing a
+      # process in the middle of a statement.
+      private def _overwrite_from_temp_table(table_name, tmp_name)
+        rows = db.from(tmp_name).select(*db.from(table_name).columns)
+        db.run("INSERT OVERWRITE TABLE #{literal(table_name)} #{rows.sql}")
       end
 
       protected def compound_clone(type, dataset, opts)

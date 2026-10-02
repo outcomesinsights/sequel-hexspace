@@ -1,3 +1,70 @@
 This is a hexspace adapter for Sequel, designed to be used with Spark (not
 Hive). You can use the hexspace:// protocol in the Sequel connection URL
 to use this adapter.
+
+== Emulated DELETE and UPDATE
+
+Spark has no DELETE and no UPDATE, so Sequel::Dataset#delete and
+Sequel::Dataset#update are emulated. Both run as:
+
+1. CREATE TABLE <table>__sequel_delete_emulate AS SELECT <the rows the
+   operation should leave behind>
+2. INSERT OVERWRITE TABLE <table> SELECT ... FROM
+   <table>__sequel_delete_emulate
+3. check that <table> now holds as many rows as the temp table did, then DROP
+   the temp table
+
+This is not a transaction, and this adapter has none to offer you:
+Database#transaction just yields. The adapter's own source says this path is
+"designed to minimize the changes to the tests, and is not recommended for
+production use". The rest of this section is what that disclaimer means in
+practice, so that you can decide rather than discover.
+
+=== What is guaranteed
+
+* Your table is never dropped. There is no window in which reading it fails
+  with table-or-view-not-found. (Before 2026-10-02 the swap dropped your table
+  and renamed the temp table into its place, and a process that died in between
+  left the table GONE.)
+
+* The rows the operation intends to keep exist under
+  <table>__sequel_delete_emulate from step 1 until step 3. If the process dies
+  before step 3, or if the row-count check in step 3 disagrees, that table is
+  left in place on purpose -- it is the recovery copy, and it is the only name
+  your data may be sitting under. Nothing in your own source will name it, so
+  if an emulated delete or update died, look there first.
+
+* Step 3 does not drop the temp table on the strength of step 2 merely
+  returning. Until the row count has been checked, the temp table is treated as
+  the only intact copy.
+
+=== What is NOT guaranteed
+
+* Atomicity. INSERT OVERWRITE is unambiguously atomic only on an ACID table
+  such as Delta. This adapter emits USING <format> only when you pass :using to
+  create_table, and the temp table above passes none, so unless your metastore
+  defaults to an ACID format both tables are not ACID. Against a default Spark
+  thriftserver (Provider hive, TextInputFormat, LazySimpleSerDe) the write was
+  measured to stage and then commit -- a job that failed after writing 150,000
+  of 200,000 rows left the table holding its full pre-operation contents, and
+  SIGKILLing the client at seven points across the statement never left the
+  table absent, empty or partial. What is left is the commit step: replacing a
+  multi-file Hive table in place is not one atomic filesystem operation, so a
+  death of the SERVER, or a storage failure, inside that step can leave the
+  table PRESENT but empty or partial. A plain SELECT then returns the wrong
+  rows SILENTLY rather than failing loudly. That window has not been
+  reproduced and is not quantified; it is accepted, not closed.
+
+* Re-running is not free. Step 1 is preceded by a DROP TABLE IF EXISTS of
+  <table>__sequel_delete_emulate, because Spark's CREATE TABLE is not
+  idempotent and a stranded temp table otherwise makes every later delete or
+  update on the same table fail. That means re-running a delete or update that
+  died DESTROYS the recovery copy. Recover your data first, then re-run.
+
+* Concurrency. The temp table name is derived from the target table name, so
+  two emulated deletes or updates against the same table at the same time will
+  fight over it. Serialize them.
+
+If any of that is unacceptable for your workload, do not use emulated DELETE or
+UPDATE -- build the replacement table yourself, under a name you control, and
+swap it in on terms you have chosen.
