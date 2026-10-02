@@ -134,6 +134,12 @@ describe "Database schema modifiers" do
   before do
     @db = DB
     @ds = @db[:items]
+    # Several tests below create :items or :items2 with a plain create_table
+    # rather than create_table!, so they inherit whatever the previous run
+    # left on the server. Cleaning up in `after` is not enough: a run that is
+    # killed never gets there, and Spark's CREATE TABLE is not idempotent, so
+    # the debris fails these tests until someone drops it by hand.
+    @db.drop_table?(:items, :items2)
   end
   after do
     # Use instead of drop_table? to work around issues on jdbc/db2
@@ -229,6 +235,8 @@ describe "Database schema modifiers" do
         path = File.join(dir, "users.parquet")
 
         begin
+          # Cleaned up in the ensure below, which a killed run never reaches.
+          @db.drop_table?(:users_source)
           @db.create_table(:users_source, :using=>"parquet", :options=>{:path=>path}) do
             Integer :id
             String :name
@@ -346,6 +354,12 @@ end
 describe "Database" do
   before do
     @db = DB
+    # Same reasoning as the drop_table? above, for a schema: CREATE SCHEMA is
+    # not idempotent either, so a run killed before the `after` hook below
+    # leaves sequel_test1 behind and every test in this group then fails. This
+    # is the same statement `after` already issues, so it drops nothing the
+    # suite was not already dropping on every run.
+    @db.drop_schema(:sequel_test1, :if_exists=>true, :cascade=>true)
     @db.create_schema(:sequel_test1)
     @db.create_table(Sequel[:sequel_test1][:t1]){Integer :id}
     @db.drop_view(:t1, :if_exists=>true)
