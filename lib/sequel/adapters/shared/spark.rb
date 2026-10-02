@@ -56,10 +56,10 @@ module Sequel
       def _tables(type, column, opts)
         sql = String.new
         sql << "SHOW " << type
-        if schema = opts[:schema]
+        if (schema = opts[:schema])
           sql << " IN " << literal(schema)
         end
-        if like = opts[:like]
+        if (like = opts[:like])
           sql << " LIKE " << literal(like)
         end
 
@@ -95,17 +95,17 @@ module Sequel
         sql << "IF NOT EXISTS " if opts[:if_not_exists]
         sql << literal(schema_name)
 
-        if comment = opts[:comment]
+        if (comment = opts[:comment])
           sql << " COMMENT "
           sql << literal(comment)
         end
 
-        if location = opts[:location]
+        if (location = opts[:location])
           sql << " LOCATION "
           sql << literal(location)
         end
 
-        if properties = opts[:properties]
+        if (properties = opts[:properties])
           sql << " WITH DBPROPERTIES ("
           properties.each do |k, v|
             sql << literal(k.to_s) << "=" << literal(v.to_s)
@@ -157,7 +157,7 @@ module Sequel
       end
 
       def _append_table_view_options_sql(sql, options)
-        if like = options[:like]
+        if (like = options[:like])
           sql << " LIKE " << literal(like)
         end
 
@@ -165,7 +165,7 @@ module Sequel
           sql << " USING " << options[:using].to_s
         end
 
-        if location = options[:location]
+        if (location = options[:location])
           sql << " LOCATION " << literal(location)
         end
 
@@ -250,7 +250,6 @@ module Sequel
 
       def date_add_sql_append(sql, da)
         expr = da.expr
-        da.cast_type || Time
 
         h = Hash.new(0)
         da.interval.each do |k, v|
@@ -537,12 +536,12 @@ module Sequel
         opts = Hash[opts].merge!(name: name, dataset: dataset).freeze
         references = ReferenceExtractor.references(dataset)
 
-        if with = @opts[:with]
+        if (with = @opts[:with])
           with = with.dup
           existing_references = @opts[:with_references]
 
-          if referencing_dataset = existing_references[literal(name)]
-            unless i = with.find_index { |o| o[:dataset].equal?(referencing_dataset) }
+          if (referencing_dataset = existing_references[literal(name)])
+            unless (i = with.find_index { |o| o[:dataset].equal?(referencing_dataset) })
               raise Sequel::Error, "internal error finding referencing dataset"
             end
 
@@ -588,6 +587,12 @@ module Sequel
       attr_reader :references
 
       def initialize(dataset)
+        # `super()` with explicit empty parens, NOT bare `super`. ASTTransformer
+        # defines no #initialize, so the inherited one is Object's, which takes
+        # no arguments -- bare `super` would forward `dataset` to it and raise
+        # ArgumentError on every instantiation. The call is a no-op today and is
+        # here so the chain still works if ASTTransformer ever gains state.
+        super()
         @dataset = dataset
         @references = {}
       end
