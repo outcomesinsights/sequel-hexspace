@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     sequel-hexspace (2.0.0)
-      hexspace (>= 0.2.1)
+      hexspace (>= 0.2.1, < 0.4)
       sequel (~> 5.0)
       thrift (>= 0.18, < 0.25)
 
@@ -71,9 +71,9 @@ PLATFORMS
 DEPENDENCIES
   base64
   minitest (~> 6.0)
-  minitest-global_expectations
-  minitest-hooks
-  rake
+  minitest-global_expectations (~> 1.0)
+  minitest-hooks (~> 1.5, >= 1.5.4)
+  rake (~> 13.0)
   rubocop (~> 1.91)
   rubocop-minitest (~> 0.25)
   sequel-hexspace!
