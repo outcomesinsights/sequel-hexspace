@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 (2026-10-01)
 
 ### Breaking
 
@@ -11,9 +11,9 @@
 
 ### Note on the gap since 1.0.0
 
-1.0.0 (April 2024) is the only version ever published; 1.0.1 was tagged in the
-repository but never released. Everything below has therefore been unavailable
-to users until now, and this is the first release to carry any of it. The list is
+1.0.0 (April 2024) was the previous published release; 1.0.1 was tagged in the
+repository but never released. Everything below had therefore been unavailable
+to users until this release, which is the first to carry any of it. The list is
 reconstructed from git history.
 
 ### Added
