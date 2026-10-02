@@ -11,10 +11,11 @@
 
 ### Note on the gap since 1.0.0
 
-1.0.0 (April 2024) was the previous published release; 1.0.1 was tagged in the
-repository but never released. Everything below had therefore been unavailable
-to users until this release, which is the first to carry any of it. The list is
-reconstructed from git history.
+1.0.0 (April 2024) was the previous published release. There was never a 1.0.1
+release and never a v1.0.1 tag — 1.0.1 was only a gemspec version bump, at
+`ce8b23e`, never tagged and never published. Everything below had therefore been
+unavailable to users until this release, which is the first to carry any of it.
+The list is reconstructed from git history.
 
 ### Added
 

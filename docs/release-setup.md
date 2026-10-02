@@ -1,9 +1,9 @@
 # Release setup — RubyGems Trusted Publishing
 
-How `sequel-hexspace` publishes to rubygems.org. **The setup is done.** This is a record of
-what is configured and why; nothing here is a step to perform. The one browser-only part,
-registering the trusted publisher, was completed on 2026-10-01, and 2.0.0 shipped through it
-the same day.
+How `sequel-hexspace` publishes to rubygems.org. **The setup is done** — it is a record of what
+is configured and why, and none of the *configuration* is a step to perform. The one browser-only
+part, registering the trusted publisher, was completed on 2026-10-01, and 2.0.0 shipped through it
+the same day. The exception is "Cutting a release" below, which is a procedure, run per release.
 
 ## How publishing is configured (verified against the live APIs, 2026-10-02)
 
@@ -61,24 +61,69 @@ condition to revisit under is therefore concrete — if `release.yml` ever gains
 
 In order, because each step gates the next:
 
-1. Bump `s.version` in `sequel-hexspace.gemspec` and land it on `main`.
-2. Wait for `ci.yml` to pass on that exact commit. `release.yml`'s `verify` job requires a
+1. Draft the changelog section: `git-cliff --unreleased --bump`. It prints a `## X.Y.Z (date)`
+   section and `git-cliff --bumped-version` prints the version that goes in the gemspec at step 4.
+   `cliff.toml` only ever **drafts** — do not run it with `--prepend CHANGELOG.md` or
+   `-o CHANGELOG.md`.
+2. **Sweep for consumer-visible changes the draft cannot see** (see below). This step relies on a
+   human and nothing enforces it.
+3. Paste the draft into `CHANGELOG.md` above the previous section, edit it, and add a line by hand
+   for anything the sweep turned up. Then run `just fmt`, because a pasted draft's prose is not
+   mdformat-clean even though its structure is. The hand-written prose in `CHANGELOG.md` —
+   notably 2.0.0's "Note on the gap since 1.0.0" — is not regenerable; never overwrite it.
+4. Bump `s.version` in `sequel-hexspace.gemspec` to match the drafted version and land it, with
+   the `CHANGELOG.md` edit, on `main`.
+5. Wait for `ci.yml` to pass on that exact commit. `release.yml`'s `verify` job requires a
    successful CI run for the tagged SHA and fails closed, so a tag pushed in the same breath as
    the commit will fail while CI is still running. That is intended; re-run the workflow once CI
    finishes.
-3. `git tag vX.Y.Z && git push origin vX.Y.Z`. The tag must name the version the gemspec reads —
+6. `git tag vX.Y.Z && git push origin vX.Y.Z`. The tag must name the version the gemspec reads —
    `verify` asserts it, so a mismatch fails the release instead of publishing the wrong number.
-4. Confirm <https://rubygems.org/gems/sequel-hexspace> lists the new version.
+7. Confirm <https://rubygems.org/gems/sequel-hexspace> lists the new version.
 
 Being a gem owner on rubygems.org is not required for any of this. Anyone with write access to
 the repo can cut a release, which is the main thing Trusted Publishing bought.
+
+### Step 2, the dependency sweep — and why a human has to do it
+
+`cliff.toml` skips `chore`, `ci`, `test`, `style`, `docs` and `bd:`, so a change landed under one
+of those types produces no draft entry and no version bump. That is right for almost all of them
+and wrong for one specific case: **a change to a runtime `s.add_dependency` requirement, which
+alters what a consumer's bundler resolves.** Run this over the release range:
+
+```sh
+git diff "$(git describe --tags --abbrev=0)"..HEAD -- sequel-hexspace.gemspec | grep add_dependency
+```
+
+Every `+`/`-` pair it prints is a declared-requirement change. If the `+` line is an
+`s.add_dependency` (runtime, not `add_development_dependency`) and it is not already in the draft
+from step 1, write a `### Changed` line for it by hand.
+
+This cannot be reduced to a commit-type rule, which is why it is a human step rather than more
+config. Of the three commits that have altered a runtime requirement since 1.0.0, only one drafted
+on its own:
+
+| Commit    | Type          | Change                     | In the draft?                               |
+| --------- | ------------- | -------------------------- | ------------------------------------------- |
+| `e3a7e93` | `fix(spark)`  | `thrift < 0.24`            | yes                                         |
+| `94f85c8` | `build(deps)` | `hexspace >= 0.2.1, < 0.4` | yes, now that `^build` is no longer skipped |
+| `07b9b82` | `chore(deps)` | `thrift < 0.24` → `< 0.25` | **no** — it shipped with no changelog line  |
+
+`94f85c8` is covered now: `^build` was removed from `cliff.toml`'s skip list, because `build:` is
+the honest conventional type for a dependency-declaration change and skipping it meant that
+choosing the type *correctly* was what hid the change. `07b9b82` is the case no type rule reaches —
+Dependabot chooses its own prefix, writes `chore(deps)` for a dependency-group bump, and that bump
+happened to widen a runtime ceiling. `^chore` must stay skipped (it is what keeps a Dependabot-only
+week from manufacturing a release), so the only thing left is to look. Hence the diff above: it
+asks a mechanical yes/no question about the gemspec rather than asking anyone to read a log and
+exercise judgement.
 
 ### GitHub runs its own copy of the workflow, not yours
 
 A tag push runs `release.yml` as it exists on GitHub, which is not necessarily the file in your
 checkout — this repo is routinely well ahead of `origin/main` (20 unpushed commits on
 2026-10-02, among them `f20fda8`, which is what added the tag/gemspec assertion to `verify`; the
-2.0.0 release ran without it). Step 1 above repairs this incidentally, because landing the
+2.0.0 release ran without it). Step 4 above repairs this incidentally, because landing the
 version bump on `main` pushes everything else with it. The trap is only for a tag pushed from an
 un-synced branch: do not read the workflow in your tree and assume that is what will run.
 
