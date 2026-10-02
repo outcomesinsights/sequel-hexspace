@@ -6,9 +6,9 @@ describe "date_arithmetic extension" do
     @db.extension(:date_arithmetic)
     @date = Date.civil(2010, 7, 12)
     @dt = Time.local(2010, 7, 12)
-    @h0 = {:days=>0}
-    @h1 = {:days=>1, :years=>nil, :hours=>0}
-    @h2 = {:years=>1, :months=>1, :days=>1, :hours=>1, :minutes=>1, :seconds=>1}
+    @h0 = { days: 0 }
+    @h1 = { days: 1, years: nil, hours: 0 }
+    @h2 = { years: 1, months: 1, days: 1, hours: 1, minutes: 1, seconds: 1 }
     @a1 = Time.local(2010, 7, 13)
     @a2 = Time.local(2011, 8, 13, 1, 1, 1)
     @s1 = Time.local(2010, 7, 11)

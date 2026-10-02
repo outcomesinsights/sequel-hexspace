@@ -1,17 +1,17 @@
-require 'simplecov'
+require "simplecov"
 SimpleCov.start do
-  add_filter '/test/'
+  add_filter "/test/"
   enable_coverage :branch
 end
 
-require 'logger'
-require 'sequel'
+require "logger"
+require "sequel"
 
 $:.unshift(File.join(File.dirname(File.expand_path(__FILE__)), "../lib/"))
 
-ENV['MT_NO_PLUGINS'] = '1' # Work around stupid autoloading of plugins
-require 'minitest/global_expectations/autorun'
-require 'minitest/hooks/default'
+ENV["MT_NO_PLUGINS"] = "1" # Work around stupid autoloading of plugins
+require "minitest/global_expectations/autorun"
+require "minitest/hooks/default"
 
 class Minitest::HooksSpec
   def log
@@ -24,4 +24,4 @@ class Minitest::HooksSpec
   end
 end
 
-DB = Sequel.connect(ENV['SEQUEL_INTEGRATION_URL'] || 'hexspace:///sequel_hexspace_test')
+DB = Sequel.connect(ENV["SEQUEL_INTEGRATION_URL"] || "hexspace:///sequel_hexspace_test")

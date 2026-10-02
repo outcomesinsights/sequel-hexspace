@@ -1,17 +1,75 @@
-inherit_from: .rubocop_todo.yml
+# The cop set is rubocop-rails-omakase, inherited whole. It is a
+# DisabledByDefault-shaped whitelist -- it switches off the Bundler, Gemspec,
+# Layout, Lint, Metrics, Naming, Performance, Rails, Security and Style
+# departments and then re-enables 27 Layout, 12 Style, 4 Lint, 1 Performance
+# and 1 Migration cop by name.
+#
+# The "rails" in the name is a maintainer, not a rule set: omakase enables ZERO
+# Rails cops. `Rails: Enabled: false` switches off the whole department, and the
+# only two Rails entries in its file -- Rails/AssertNot and Rails/RefuteMethods
+# -- set `Include:` ONLY, with no `Enabled:`, so they resolve to the
+# department's false. Verified against 1.1.0: `rubocop --only Rails` reports 0
+# offenses in this tree despite the test suite calling `refute`. It is a generic
+# Ruby Layout/Style whitelist of the same shape rack, puma, rake and rdoc each
+# hand-roll for themselves, and it is used here for that reason, not for any
+# Rails affinity. Adopted by ruling 2026-10-02 across every Ruby repo; the
+# alternative -- a 45-cop whitelist copied into ten repos -- had already
+# produced three different string-quote settings and two TargetRubyVersions from
+# one source.
+#
+# Consequences worth knowing before reaching for a cop that is not here:
+# Layout/LineLength, the entire Metrics department and the entire Naming
+# department are OFF. That is the ruling, not an oversight. Do not re-add cops
+# to this file to restore them.
+inherit_gem:
+  rubocop-rails-omakase: rubocop.yml
 
+# NOT vestigial, contrary to what was assumed when this change was specified.
+# omakase does not set `AllCops/DisabledByDefault`; it disables ten departments
+# BY NAME (Bundler, Gemspec, Layout, Lint, Metrics, Naming, Performance, Rails,
+# Security, Style). Minitest is not among them, so this plugin's 37
+# default-enabled cops are all live -- measured against rubocop-minitest 0.40.0
+# via `RuboCop::ConfigStore#cop_enabled?`, not inferred. `NewCops: disable`
+# keeps its pending ones off.
 plugins:
   - rubocop-minitest
+
+# The one department-level addition to omakase, per the ruling: correctness
+# checks are not a matter of taste, so Lint is enforced in full rather than the
+# four cops omakase picks.
+Lint:
+  Enabled: true
+
+# The ONE cop switched off beyond the inherited whitelist, and it is switched
+# off because it contradicts a declared dependency rather than because anyone
+# dislikes it.
+#
+# This suite requires 'minitest/global_expectations/autorun'
+# (test/spec_helper.rb) and the gemspec declares minitest-global_expectations as
+# a development dependency with pinned bounds. The entire point of that gem is
+# to make `value.must_equal x` legal at top level instead of
+# `_(value).must_equal x`; it is the house style of Sequel's own suites, which
+# this adapter's tests are derived from. The cop asks for the opposite, at 875
+# call sites, and autocorrecting it would both reverse a deliberate choice and
+# leave the gem in the gemspec doing nothing.
+#
+# Reverting this is three lines plus `rubocop -a`; it is recorded here so that
+# is a decision rather than a discovery.
+Minitest/GlobalExpectations:
+  Enabled: false
 
 AllCops:
   # The OLDEST Ruby in ci.yml's matrix, not the newest and not the primary
   # target. This is what tells rubocop which syntax exists: set to 4.0 it
   # accepts 4.0-only syntax in a gem that still has to run on 3.3, and the
   # breakage shows up as a failing 3.3 test job or in a user's app instead of as
-  # a lint offense. Raise it only when the matrix floor rises. If
-  # required_ruby_version is ever declared in the gemspec, the
-  # Gemspec/RequiredRubyVersion cop requires the two to agree, so they move
-  # together.
+  # a lint offense. Raise it only when the matrix floor rises.
+  #
+  # It must agree with the gemspec's `required_ruby_version >= 3.3`, and NOTHING
+  # NOW CHECKS THAT -- omakase sets `Gemspec: Enabled: false`, so
+  # Gemspec/RequiredRubyVersion is off. (It was already toothless before this
+  # change: .rubocop_todo.yml excluded it for sequel-hexspace.gemspec.) The two
+  # still move together; that is now a convention, not a gate.
   TargetRubyVersion: 3.3
   # Deliberately `disable`, not `enable`: with `enable`, a rubocop or plugin
   # bump switches its new cops on by itself and reds the build against code
@@ -19,7 +77,6 @@ AllCops:
   # cops are adopted on purpose, in a periodic cross-repo pass -- not never,
   # and not whenever Dependabot happens to fire. Decided 2026-09-12.
   NewCops: disable
-  SuggestExtensions: false
   Exclude:
     - 'vendor/**/*'
     - 'bin/**/*'
@@ -33,131 +90,8 @@ AllCops:
     # directory that merely starts with the same characters.
     - 'claude_stuff/**/*'
 
+# Keeps the Exclude list above ADDITIVE to omakase's own ('data/**/*') instead
+# of replacing it.
 inherit_mode:
   merge:
     - Exclude
-
-Layout/IndentationWidth:
-  Width: 2
-
-Style/StringLiterals:
-  EnforcedStyle: single_quotes
-
-Style/StringLiteralsInInterpolation:
-  EnforcedStyle: double_quotes
-
-Style/DefWithParentheses:
-  Enabled: false
-
-Style/MethodCallWithoutArgsParentheses:
-  Enabled: true
-
-Layout/LineLength:
-  Max: 120
-  AllowedPatterns: ['\A\s*#']
-  Exclude:
-    - '*.gemspec'
-    - 'test/**/*'
-
-Style/Documentation:
-  Enabled: false
-
-Style/FrozenStringLiteralComment:
-  Enabled: false
-
-Style/Lambda:
-  Enabled: false
-
-Style/ParallelAssignment:
-  Enabled: false
-
-Style/GuardClause:
-  Enabled: true
-
-Style/IfUnlessModifier:
-  Enabled: true
-
-Metrics/MethodLength:
-  Max: 25
-
-Metrics/ClassLength:
-  Max: 200
-
-Metrics/ModuleLength:
-  Max: 200
-
-Metrics/BlockLength:
-  Max: 50
-  Exclude:
-    - 'test/**/*'
-    - '*.gemspec'
-    - 'Rakefile'
-
-Style/ZeroLengthPredicate:
-  Enabled: false
-
-Naming/MemoizedInstanceVariableName:
-  Enabled: false
-
-Naming/MethodParameterName:
-  MinNameLength: 1
-
-Style/MultilineBlockChain:
-  Enabled: false
-
-Metrics/AbcSize:
-  Max: 35
-  Exclude:
-    - 'test/**/*'
-
-Metrics/CyclomaticComplexity:
-  Max: 15
-
-Metrics/PerceivedComplexity:
-  Max: 12
-
-Metrics/BlockNesting:
-  Max: 4
-
-Naming/AccessorMethodName:
-  Enabled: false
-
-Style/HashSyntax:
-  EnforcedStyle: ruby19
-  EnforcedShorthandSyntax: either
-
-Minitest/AssertEqual:
-  Enabled: true
-
-Minitest/RefuteEqual:
-  Enabled: true
-
-Layout/EmptyLinesAroundClassBody:
-  EnforcedStyle: empty_lines_except_namespace
-
-Layout/EmptyLinesAroundModuleBody:
-  EnforcedStyle: empty_lines_except_namespace
-
-Style/TrailingCommaInArguments:
-  EnforcedStyleForMultiline: comma
-
-Style/TrailingCommaInArrayLiteral:
-  EnforcedStyleForMultiline: comma
-
-Style/TrailingCommaInHashLiteral:
-  EnforcedStyleForMultiline: comma
-
-Gemspec/DevelopmentDependencies:
-  Enabled: false
-
-Style/HashLikeCase:
-  Exclude:
-    - 'test/**/*'
-
-Lint/DuplicateBranch:
-  Exclude:
-    - 'test/**/*'
-
-Style/StringConcatenation:
-  Exclude:
-    - 'test/**/*'
