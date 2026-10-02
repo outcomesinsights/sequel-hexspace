@@ -2,48 +2,63 @@ name: Release
 
 # Trusted Publishing: this workflow is registered as sequel-hexspace's trusted
 # publisher on rubygems.org (owner outcomesinsights, repo sequel-hexspace,
-# workflow release.yml, environment release), so it mints a short-lived,
+# workflow release.yml, environment unset), so it mints a short-lived,
 # push-scoped token via GitHub's OIDC provider at run time. There is no
 # RUBYGEMS_API_KEY secret in this repo and there must never be one — the point of
 # the arrangement is that no long-lived credential exists to leak, rotate, or tie
 # the gem to one person's machine.
 #
+# Two things here are load-bearing for that registration, which is keyed on
+# owner/repo/WORKFLOW FILENAME/environment: this file must stay named
+# `release.yml`, and the publishing job must stay under `environment: release`.
+# The registered environment column is empty, which rubygems treats as a
+# wildcard and so still accepts a token naming an environment; pinning it is
+# deferred, and docs/release-setup.md records why, along with the condition to
+# revisit under (a third job in this file).
+#
 # To cut a release: bump s.version in the gemspec, land it on main, wait for CI
-# to go green, then push a matching tag (`git tag v1.0.2 && git push origin
-# v1.0.2`). Anyone with write access to the repo can do that; being a gem owner
-# on rubygems.org is not required.
+# to go green, then push a matching tag (`git tag v2.0.1 && git push origin
+# v2.0.1`). Anyone with write access to the repo can do that; being a gem owner
+# on rubygems.org is not required. `refs/tags/v*` is immutable by repository
+# ruleset, so a tag that fails verification is NOT retried by retagging — fix
+# forward with a new version. That is also why nothing fragile belongs on this
+# path: a spurious failure here costs a version number.
+#
+# Every action is pinned to a full commit SHA with the version in a comment: a
+# tag can be moved to other code, a SHA cannot. Dependabot (github-actions
+# ecosystem, monthly) proposes the bumps, which is the intended way these move.
 on:
   push:
     tags:
       - "v*"
 
+# Deny by default: every scope a job does not name is none. BOTH jobs below
+# therefore declare their own block, and each one is reasoned out in a comment
+# there, because nothing in this repo's gate checks a block for being too
+# NARROW -- actionlint and zizmor were both probed against exactly that defect
+# and both stay silent. Read docs/workflow-permissions.md before editing either
+# block, or adding a step to either job.
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  # ci.yml runs on pushes to main and on PRs — never on a tag. Without this job a
-  # tag pointing at an untested commit would publish an unbuilt, untested gem,
-  # and a yank is the only way back out. So require that the exact commit being
-  # tagged already has a successful CI run of its own.
-  #
-  # This blocks a tag pushed in the same breath as the commit, while CI is still
-  # running. That is the intended behaviour, not a bug: re-run this workflow once
-  # CI finishes. It fails closed — an API hiccup blocks the release rather than
-  # waving it through.
-  #
-  # It also asserts the tag names the version the gemspec will actually build.
-  # Nothing else ties the two together: the trigger matches any `v*` tag and
-  # release-gem builds whatever s.version says, so tagging v2.1.0 against a
-  # gemspec reading 2.0.0 would publish 2.0.0 under a v2.1.0 tag. That is
-  # currently refused only by accident, as a confusing detached-HEAD push failure
-  # downstream, which is not a check.
+  # Everything that decides whether this commit may ship happens here, with no
+  # publish rights of any kind. It fails closed: a tag pushed in the same breath
+  # as the commit (while CI is still running), a cancelled run, or an API error
+  # blocks the release rather than waving it through. Re-run this workflow once
+  # CI is green.
   verify:
     runs-on: ubuntu-latest
 
-    # An explicit permissions block sets every scope it does not name to none,
-    # so `contents: read` has to be spelled out or the checkout below cannot
-    # fetch the repo. `actions: read` is for the gh api call.
+    # `contents: read` is for the checkout below; `actions: read` is for the
+    # gh api call that reads ci.yml's runs.
     #
     # Do not "tidy" `contents: read` away as unused. No step names it, but the
-    # checkout above cannot work without it, and no linter in this repo catches
-    # its absence -- actionlint and zizmor were both probed against exactly this
+    # checkout cannot work without it, and no linter in this repo catches its
+    # absence -- actionlint and zizmor were both probed against exactly this
     # shape and both stay silent. This block had `actions: read` alone until the
     # checkout arrived in f20fda8, which added both together; drop the one and
     # keep the other and every release fails, for a reason that reads nothing
@@ -52,17 +67,26 @@ jobs:
     permissions:
       actions: read
       contents: read
+
+    # The version the publish job builds and pushes, taken from the gemspec
+    # only after it has been proved to match the tag.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
       # Needed only so the gemspec is on disk for the version assertion below.
       # No credentials: this job pushes nothing.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # The runner's preinstalled ruby is enough — this gemspec is plain Ruby
-      # with no requires and no version file, so loading it needs nothing but
-      # RubyGems. No setup-ruby step, and no bundle.
+      # FIRST, deliberately: it is deterministic, needs no API call, and gives
+      # the clearest error of the three checks. The runner's preinstalled ruby
+      # is enough -- this gemspec is plain Ruby with no requires and no version
+      # file, so loading it needs nothing but RubyGems. No setup-ruby step, and
+      # no bundle.
       - name: Require the tag to match the gemspec version
+        id: version
         env:
           REF_NAME: ${{ github.ref_name }}
         run: |
@@ -75,49 +99,185 @@ jobs:
             echo "::error::Tag $REF_NAME means version $tag_version, but the gemspec at this commit says $gemspec_version. Bump s.version to match, or delete the tag and re-tag the right commit."
             exit 1
           fi
+          echo "version=$gemspec_version" >> "$GITHUB_OUTPUT"
 
-      - name: Require a green CI run for this commit
+      # Only main ships. Asked of git history rather than of CI, so it holds
+      # even for a commit whose CI was green: a tag on a pull-request commit, or
+      # on a branch that was never merged, would otherwise publish code that
+      # never landed. "ahead" means main contains this commit and has moved on;
+      # "identical" means the tag is main's tip. "behind" and "diverged" are
+      # both refusals.
+      - name: Require the tagged commit to be on main
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          count=$(gh api \
-            "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&status=success" \
-            --jq '.total_count')
-          echo "Successful CI runs for $SHA: $count"
-          if [[ "$count" -lt 1 ]]; then
-            echo "::error::No successful CI run for $SHA. Land the commit on main, let CI pass, then re-run this workflow."
+          status=$(gh api "repos/$REPO/compare/$SHA...main" --jq .status)
+          echo "main relative to $SHA: $status"
+          if [[ "$status" != "ahead" && "$status" != "identical" ]]; then
+            echo "::error::$SHA is not on main ($status); refusing to publish"
             exit 1
           fi
 
+      # A successful run of the CI workflow FILE, started by a PUSH TO MAIN, for
+      # exactly this commit. Every part of that is load-bearing:
+      #
+      #   - event=push&branch=main: without them any successful run at the SHA
+      #     satisfied this, including a pull_request run or a workflow_dispatch.
+      #     Demonstrated on this repo -- PR commit 995a79a4, diverged from main,
+      #     returned a count of 1 under the old query.
+      #   - the .path filter: a workflow-id lookup alone has been seen to return
+      #     runs of a different workflow file, and the id behind `ci.yml` is
+      #     whatever file now occupies that name.
+      #   - the head_sha filter: belt and braces on the query parameter.
+      #   - the LATEST matching run decides, not "any success": a re-run that
+      #     failed must not be outvoted by an earlier green one.
+      #
+      # `.conclusion // .status // "missing"` is what makes it fail closed --
+      # an in-progress run reports its status, and no run at all reports
+      # "missing". Neither is "success".
+      - name: Require a green CI run from a push to main on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          ci=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&branch=main" \
+            --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml" and .head_sha == env.SHA)]
+                  | sort_by(.created_at) | last | (.conclusion // .status // "missing")')
+          echo "CI (push to main) on $SHA: $ci"
+          if [[ "$ci" != "success" ]]; then
+            echo "::error::CI on $SHA is '$ci'. Land the commit on main, let CI pass, then re-run this workflow."
+            exit 1
+          fi
+
+  # Holds publish rights, so it runs none of this project's development
+  # dependencies and installs no bundle: Ruby, the gemspec, the built gem and
+  # its runtime dependencies, nothing else. The suite does not run here, and
+  # must not be moved here -- see the note on the smoke test below for where
+  # the evidence about this commit comes from instead.
   push:
     needs: [verify]
     runs-on: ubuntu-latest
 
-    # Required by the OIDC token exchange. Scoped to this job rather than the
-    # workflow, per RubyGems' guidance. Dropping `id-token: write` from this
-    # block fails the token exchange with a message about OIDC, not about
-    # permissions -- see docs/workflow-permissions.md before narrowing it.
+    # `id-token: write` is required by the OIDC token exchange; dropping it
+    # fails that exchange with a message about OIDC, not about permissions.
+    # `contents: read` is for the checkout. Nothing here writes to the repo:
+    # `contents: write` was needed by rubygems/release-gem, which ran `rake
+    # release` and pushed a git tag, and went away with it. Scoped to this job
+    # rather than the workflow, per RubyGems' guidance -- see
+    # docs/workflow-permissions.md before narrowing it.
     permissions:
-      contents: write
+      contents: read
       id-token: write
 
-    # Must match the environment registered with the trusted publisher, or the
-    # token exchange is refused. It also gives the repo a place to hang a
-    # required reviewer on releases without touching this file.
+    # Must stay: the trusted publisher is keyed in part on the environment, and
+    # the `release` environment also restricts deployments to `v*` tags. See the
+    # header.
     environment: release
 
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@v1
+
+      # No bundler cache on the release trigger: a cache written by a branch or
+      # PR run could supply gems to the job that publishes, which is a trust
+      # boundary this job should not cross. ci.yml keeps its cache deliberately
+      # -- it runs on push-to-main and pull_request, so it WRITES those caches
+      # rather than consuming one across a boundary.
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: '4.0'
-          bundler-cache: true
+          bundler-cache: false
 
-      # Builds from the Rakefile's bundler/gem_tasks and pushes with the
-      # short-lived token. No credentials are passed in.
-      - uses: rubygems/release-gem@v1
+      - name: Build the gem
+        run: gem build sequel-hexspace.gemspec --output "sequel-hexspace-${VERSION}.gem"
+
+      # The gemspec's s.files is an ALLOWLIST -- %w(CHANGELOG.md LICENSE README)
+      # plus Dir["lib/**/*.rb"] -- and an allowlist cannot ship a file nobody
+      # added to it. A new non-.rb asset, or a lib/ file the glob misses, would
+      # be absent from the gem while every test passed, because the tests load
+      # from the checkout and never from the packaged artifact. Nothing else in
+      # this pipeline catches that, so: install the built gem into an empty
+      # GEM_HOME and load the adapter from THERE.
+      #
+      # Four details make it test something rather than nothing:
+      #   - GEM_PATH is set alongside GEM_HOME on the install. With GEM_HOME
+      #     alone, `gem install` sees the runner's preinstalled gems, skips
+      #     installing the runtime dependencies, and the isolated load then
+      #     fails -- which reads as a broken gem rather than a broken harness.
+      #     Measured locally: 1 gem installed instead of 5, then a load failure.
+      #   - it runs from an empty directory, so nothing can resolve from the
+      #     checkout.
+      #   - it asserts gem_dir starts with that GEM_HOME. Without the assert, a
+      #     load that resolved from the checkout passes and the step is theatre.
+      #   - it asserts the adapter's own classes were DEFINED under that
+      #     gem_dir, not just that the spec resolved there. `require "sequel"`
+      #     would prove nothing (sequel is a dependency), and activating the
+      #     spec does not pin where sequel/adapters/hexspace.rb is read from:
+      #     with the checkout's lib on RUBYLIB the gem_dir assert alone passes
+      #     while the adapter comes off disk. Measured, which is why
+      #     const_source_location is checked as well.
+      # It is loaded through Sequel::Database.load_adapter, which is the path a
+      # consumer's Sequel.connect("hexspace://...") takes, and shared/spark.rb's
+      # scheme registration is asserted because that file is one glob away from
+      # being left out. Dropping it from the allowlist was simulated against a
+      # real built gem: the step fails.
+      #
+      # The install is deliberate, and it IS the test: zizmor's adhoc-packages
+      # rule flags installing a package at run time, which is exactly the point
+      # of this step, so the finding is suppressed here rather than removed by
+      # contorting the install. The ignore has to sit on this `run:` line -- the
+      # same comment INSIDE the block is not honoured (measured, zizmor 1.30.1).
+      - name: Check the built gem loads when installed, without the checkout
+        run: | # zizmor: ignore[adhoc-packages] - installing the built gem IS this smoke test
+          set -euo pipefail
+          home=$(mktemp -d); empty=$(mktemp -d)
+          GEM_HOME="$home" GEM_PATH="$home" gem install --no-document "sequel-hexspace-${VERSION}.gem"
+          cd "$empty"
+          GEM_HOME="$home" GEM_PATH="$home" ruby -e '
+            gem "sequel-hexspace"; require "sequel"
+            Sequel::Database.load_adapter(:hexspace)
+            dir = Gem.loaded_specs["sequel-hexspace"].gem_dir
+            abort "loaded #{dir}, not the built gem" unless dir.start_with?(ENV["GEM_HOME"])
+            adapter = Object.const_source_location("Sequel::Hexspace::Database")&.first
+            shared  = Object.const_source_location("Sequel::Spark::DatabaseMethods")&.first
+            abort "the adapter did not come from the built gem: #{adapter.inspect}" unless adapter&.start_with?(dir)
+            abort "shared/spark.rb did not come from the built gem: #{shared.inspect}" unless shared&.start_with?(dir)
+            abort "Sequel::Hexspace::Database is not a Sequel::Database" unless Sequel::Hexspace::Database < Sequel::Database
+            abort "the :spark shared adapter did not register" unless Sequel.synchronize { Sequel::SHARED_ADAPTER_MAP[:spark] }
+            puts "installed gem at #{dir}"
+            puts "adapter: #{adapter}"
+            puts "shared:  #{shared}"'
+
+      # Trusted publishing: exchanges this job's OIDC token for a short-lived
+      # rubygems API key. Replaces rubygems/release-gem@v1, which built and
+      # pushed in one step and so left no seam to put the smoke test above in.
+      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+
+      # No retry. A failed push fails the run; investigate before re-running.
+      - name: Push to rubygems.org
+        run: gem push "sequel-hexspace-${VERSION}.gem"
+
+      # The run's colour is not the evidence; the version on rubygems.org is.
+      # Looked up in the full version list, not latest.json, which omits
+      # pre-releases and would report an older version as latest. Polled because
+      # rubygems' CDN can lag behind the push.
+      - name: Confirm rubygems.org serves the new version
+        run: |
+          for i in $(seq 1 30); do
+            found=$(curl -fsS https://rubygems.org/api/v1/versions/sequel-hexspace.json \
+              | jq -r --arg v "$VERSION" '[.[] | select(.number == $v)] | length' || true)
+            echo "attempt $i: rubygems lists $VERSION: ${found:-?}"
+            [[ "$found" == "1" ]] && exit 0
+            sleep 10
+          done
+          echo "::error::rubygems.org still does not list $VERSION"
+          exit 1
