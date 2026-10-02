@@ -5,7 +5,7 @@ source "https://rubygems.org"
 gemspec
 
 # thrift 0.22.0 requires base64 but doesn't declare it; removed from default gems in Ruby 3.4
-gem 'base64'
+gem "base64"
 
 # Linters live here, not in the gemspec's development dependencies: rubocop
 # pulls in parallel, whose required_ruby_version is >= 3.3 -- exactly the floor
@@ -22,6 +22,11 @@ gem 'base64'
 # `bundle exec rubocop` starts failing with "rubocop not found". (Bundler 4.0
 # removed the flag outright.)
 group :lint do
-  gem 'rubocop', '~> 1.91'
-  gem 'rubocop-minitest', '~> 0.25'
+  gem "rubocop", "~> 1.91"
+  gem "rubocop-minitest", "~> 0.25"
+  # The shared cop whitelist .rubocop.yml inherits (see its header). Pulls
+  # rubocop-rails and rubocop-performance as dependencies; none of the three
+  # ships in the .gem, whose s.files is an allowlist of
+  # CHANGELOG/LICENSE/README + lib/**/*.rb.
+  gem "rubocop-rails-omakase", "~> 1.1"
 end
