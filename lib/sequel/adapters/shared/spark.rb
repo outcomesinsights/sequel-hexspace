@@ -248,6 +248,28 @@ module Sequel
 
       Dataset.def_sql_method(self, :select, [ [ "if opts[:values]", %w[values] ], [ "else", %w[with select distinct columns from join where group having compounds order limit] ] ])
 
+      # Handle the date_arithmetic extension's DateAdd expressions using
+      # Spark's make_ym_interval/make_dt_interval functions.
+      #
+      # The extension lets a caller name the result type with the :cast
+      # option (DateAdd#cast_type), defaulting to the generic timestamp type,
+      # and the result is always cast to it here.
+      #
+      # The cast is unconditional because Spark's interval arithmetic does
+      # not settle on one result type -- it depends on both the input type
+      # and which interval function is used. Measured against a live server
+      # on the 3.5.0 that ci.yml pins: DATE + make_dt_interval and TIMESTAMP
+      # + either function yield a TIMESTAMP, but DATE + make_ym_interval
+      # yields a DATE. So there is no subset of cases in which the cast can
+      # be skipped and still be honoured, and an interval of all zeroes adds
+      # nothing to cast in the first place.
+      #
+      # Spark's CAST is narrower than other databases': types it does not
+      # have (:timestamptz) or cannot convert to (:interval) are rejected by
+      # the server with UNSUPPORTED_DATATYPE or DATATYPE_MISMATCH, raising
+      # Sequel::DatabaseError. That is deliberately not pre-screened here --
+      # an allowlist of castable types in the adapter would go stale against
+      # the server, and the server's own message names the offending type.
       def date_add_sql_append(sql, da)
         expr = da.expr
 
@@ -268,7 +290,7 @@ module Sequel
           expr = Sequel.+(expr, Sequel.function(:make_dt_interval, h[:days], h[:hours], h[:minutes], h[:seconds]))
         end
 
-        literal_append(sql, expr)
+        literal_append(sql, Sequel.cast(expr, da.cast_type || Time))
       end
 
       # Route prepared statement / bound variable deletes through the
