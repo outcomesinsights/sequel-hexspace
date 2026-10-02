@@ -1,26 +1,26 @@
-require_relative 'spec_helper'
-require 'open3'
-require 'rbconfig'
+require_relative "spec_helper"
+require "open3"
+require "rbconfig"
 
-describe 'mock hexspace without driver' do
-  let(:ruby){ RbConfig.ruby }
-  let(:repo_root){ File.expand_path('..', __dir__) }
+describe "mock hexspace without driver" do
+  let(:ruby) { RbConfig.ruby }
+  let(:repo_root) { File.expand_path("..", __dir__) }
 
   def run_ruby(code)
     gem_path = Gem.path.join(File::PATH_SEPARATOR)
     Bundler.with_unbundled_env do
       Open3.capture3(
-        { 'GEM_PATH' => gem_path },
+        { "GEM_PATH" => gem_path },
         ruby,
-        '-Ilib',
-        '-e',
+        "-Ilib",
+        "-e",
         code,
         chdir: repo_root,
       )
     end
   end
 
-  it 'loads shared hexspace support without requiring the hexspace gem' do
+  it "loads shared hexspace support without requiring the hexspace gem" do
     code = <<~RUBY
       module Kernel
         alias __orig_require__ require

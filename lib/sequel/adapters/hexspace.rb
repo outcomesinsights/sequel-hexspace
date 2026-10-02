@@ -1,18 +1,18 @@
-require_relative 'shared/hexspace'
-require 'hexspace'
+require_relative "shared/hexspace"
+require "hexspace"
 
 # Backport upstream fix (THRIFT-5909, PR #3270) for thrift 0.22.0 on Ruby 3.4+.
 # Thrift::Bytes.empty_byte_buffer calls force_encoding on string literals,
 # which triggers "literal string will be frozen in the future" warnings.
 # Remove this once thrift > 0.22.0 is released with the fix.
-if defined?(Thrift::Bytes) && (spec = Gem.loaded_specs['thrift']) && spec.version < Gem::Version.new('0.23')
+if defined?(Thrift::Bytes) && (spec = Gem.loaded_specs["thrift"]) && spec.version < Gem::Version.new("0.23")
   module Thrift
     module Bytes
-      def self.empty_byte_buffer(size=nil)
+      def self.empty_byte_buffer(size = nil)
         if size&.positive?
           "\0".b * size
         else
-          ''.b
+          "".b
         end
       end
     end
@@ -41,7 +41,6 @@ end
 # Note this keeps 0.23 semantics -- it does NOT add 0.24's stricter checks for
 # invalid message type and wrong method name. Remove once hexspace regenerates
 # its client against thrift >= 0.24.
-# rubocop:disable-next Style/GuardClause, Naming/PredicateMethod
 if defined?(Thrift::Client)
   # Both methods below are copied verbatim from thrift 0.23.0 and deliberately
   # not restyled: keeping them byte-comparable with upstream is what makes them
@@ -80,7 +79,7 @@ module Sequel
       def connect(server)
         opts = server_opts(server)
         opts[:username] = opts[:user]
-        opts.select!{|k,v| v.to_s != '' && ALLOWED_CLIENT_KEYWORDS.include?(k)}
+        opts.select! { |k, v| v.to_s != "" && ALLOWED_CLIENT_KEYWORDS.include?(k) }
         ::Hexspace::Client.new(**opts)
       end
 
@@ -105,9 +104,9 @@ module Sequel
         end
       end
 
-      def execute(sql, opts=OPTS)
+      def execute(sql, opts = OPTS)
         synchronize(opts[:server]) do |conn|
-          res = log_connection_yield(sql, conn){conn.execute(sql, result_object: true)}
+          res = log_connection_yield(sql, conn) { conn.execute(sql, result_object: true) }
         rescue => e
           raise_error(e)
         else
@@ -115,7 +114,7 @@ module Sequel
         end
       end
 
-      def execute_insert(sql, opts=OPTS)
+      def execute_insert(sql, opts = OPTS)
         execute(sql, opts)
 
         # Return nil instead of empty array.
@@ -140,13 +139,13 @@ module Sequel
           types = result.column_types
           column_info = columns.map.with_index do |name, i|
             conversion_proc = case types[i]
-            when 'binary'
+            when "binary"
               Sequel.method(:blob)
-            when 'timestamp'
+            when "timestamp"
               db.method(:to_application_timestamp)
             end
 
-            [i, name, conversion_proc]
+            [ i, name, conversion_proc ]
           end
 
           result.rows.each do |row|

@@ -1,10 +1,10 @@
 require_relative "spec_helper"
 
 describe "Sequel timezone support" do
-  def _test_timezone(timezone=Sequel.application_timezone)
+  def _test_timezone(timezone = Sequel.application_timezone)
     Sequel.datetime_class = Time
     # Tests should cover both DST and non-DST times.
-    [Time.now, Time.local(2010,1,1,12), Time.local(2010,6,1,12)].each do |t|
+    [ Time.now, Time.local(2010, 1, 1, 12), Time.local(2010, 6, 1, 12) ].each do |t|
       @db[:t].insert(t)
       t2 = @db[:t].single_value
       t2 = @db.to_application_timestamp(t2.to_s) unless t2.is_a?(Time)
@@ -17,7 +17,7 @@ describe "Sequel timezone support" do
     Sequel.datetime_class = DateTime
     local_dst_offset = Time.local(2010, 6).utc_offset/86400.0
     local_std_offset = Time.local(2010, 1).utc_offset/86400.0
-    [DateTime.now, DateTime.civil(2010,1,1,12,0,0,local_std_offset), DateTime.civil(2010,6,1,12,0,0,local_dst_offset)].each do |dt|
+    [ DateTime.now, DateTime.civil(2010, 1, 1, 12, 0, 0, local_std_offset), DateTime.civil(2010, 6, 1, 12, 0, 0, local_dst_offset) ].each do |dt|
       @db[:t].insert(dt)
       dt2 = @db[:t].single_value
       dt2 = @db.to_application_timestamp(dt2.to_s) unless dt2.is_a?(DateTime)
@@ -30,7 +30,7 @@ describe "Sequel timezone support" do
 
   before do
     @db = DB
-    @db.create_table!(:t){DateTime :t}
+    @db.create_table!(:t) { DateTime :t }
   end
   after do
     @db.timezone = nil

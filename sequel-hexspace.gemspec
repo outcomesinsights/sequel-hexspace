@@ -8,18 +8,18 @@ Gem::Specification.new do |s|
   # 3.2 went out of support, which is what makes this release 2.0.0 rather than
   # 1.0.2 -- a floor is breaking for anyone resolving the gem on an older Ruby.
   s.required_ruby_version = '>= 3.3'
-  s.extra_rdoc_files = ["LICENSE"]
-  s.rdoc_options += ["--quiet", "--line-numbers", "--inline-source", '--title', 'sequel-hexspace: Sequel adapter for hexspace driver and Apache Spark database', '--main', 'README']
+  s.extra_rdoc_files = [ "LICENSE" ]
+  s.rdoc_options += [ "--quiet", "--line-numbers", "--inline-source", '--title', 'sequel-hexspace: Sequel adapter for hexspace driver and Apache Spark database', '--main', 'README' ]
   s.license = "MIT"
   s.summary = "Sequel adapter for hexspace driver and Apache Spark database"
-  s.authors = ["Jeremy Evans", "Ryan Duryea"]
+  s.authors = [ "Jeremy Evans", "Ryan Duryea" ]
   s.email = "aguynamedryan@gmail.com"
   s.homepage = "https://github.com/outcomesinsights/sequel-hexspace"
   # Makes rubygems.org refuse gem-level privileged actions (push, yank, owner
   # changes) from an account without MFA enabled. Applies to versions published
   # after it ships; it cannot be applied retroactively to one already out.
   s.metadata = { 'rubygems_mfa_required' => 'true' }
-  s.files = %w(CHANGELOG.md LICENSE README) + Dir["lib/**/*.rb"]
+  s.files = %w[CHANGELOG.md LICENSE README] + Dir["lib/**/*.rb"]
   s.description = <<END
 This is a hexspace adapter for Sequel, designed to be used with Spark (not
 Hive). You can use the hexspace:// protocol in the Sequel connection URL

@@ -1,6 +1,6 @@
 # frozen-string-literal: true
 
-require 'sequel/adapters/utils/unmodified_identifiers'
+require "sequel/adapters/utils/unmodified_identifiers"
 
 module Sequel
   module Spark
@@ -9,7 +9,7 @@ module Sequel
     module DatabaseMethods
       include UnmodifiedIdentifiers::DatabaseMethods
 
-      def create_schema(schema_name, opts=OPTS)
+      def create_schema(schema_name, opts = OPTS)
         run(create_schema_sql(schema_name, opts))
       end
 
@@ -17,7 +17,7 @@ module Sequel
         :spark
       end
 
-      def drop_schema(schema_name, opts=OPTS)
+      def drop_schema(schema_name, opts = OPTS)
         run(drop_schema_sql(schema_name, opts))
       end
 
@@ -26,28 +26,28 @@ module Sequel
       def serial_primary_key_options
         # We could raise an exception here instead of just
         # ignoring the primary key setting.
-        {:type=>Integer}
+        { type: Integer }
       end
 
       def supports_create_table_if_not_exists?
         true
       end
 
-      def tables(opts=OPTS)
+      def tables(opts = OPTS)
         _mangle_tables(_tables("TABLES", :tableName, opts) - _views(opts), opts)
       end
 
       # Spark does not support transactions.
-      def transaction(opts=nil)
+      def transaction(_opts = nil)
         yield
       end
 
       # Use an inline VALUES table.
       def values(v)
-        @default_dataset.clone(:values=>v)
+        @default_dataset.clone(values: v)
       end
 
-      def views(opts=OPTS)
+      def views(opts = OPTS)
         _mangle_tables(_views(opts), opts)
       end
 
@@ -68,7 +68,7 @@ module Sequel
         # Always internally qualify, so that if a table name in a schema
         # has the same name as a temporary view, it will not exclude
         # the table name.
-        ds.map([:namespace, column]).map do |ns, name|
+        ds.map([ :namespace, column ]).map do |ns, name|
           if ns && !ns.empty?
             Sequel::SQL::QualifiedIdentifier.new(ns, name)
           else
@@ -85,32 +85,32 @@ module Sequel
         if opts[:qualify]
           tables
         else
-          tables.map{|t| t.is_a?(Sequel::SQL::QualifiedIdentifier) ? t.column.to_sym : t}
+          tables.map { |t| t.is_a?(Sequel::SQL::QualifiedIdentifier) ? t.column.to_sym : t }
         end
       end
 
       def create_schema_sql(schema_name, opts)
         sql = String.new
-        sql << 'CREATE SCHEMA '
-        sql << 'IF NOT EXISTS ' if opts[:if_not_exists]
+        sql << "CREATE SCHEMA "
+        sql << "IF NOT EXISTS " if opts[:if_not_exists]
         sql << literal(schema_name)
 
         if comment = opts[:comment]
-          sql << ' COMMENT '
+          sql << " COMMENT "
           sql << literal(comment)
         end
 
         if location = opts[:location]
-          sql << ' LOCATION '
+          sql << " LOCATION "
           sql << literal(location)
         end
 
         if properties = opts[:properties]
-          sql << ' WITH DBPROPERTIES ('
+          sql << " WITH DBPROPERTIES ("
           properties.each do |k, v|
             sql << literal(k.to_s) << "=" << literal(v.to_s)
           end
-          sql << ')'
+          sql << ")"
         end
 
         sql
@@ -118,11 +118,11 @@ module Sequel
 
       def create_table_prefix_sql(name, options)
         sql = String.new
-        sql << 'CREATE '
-        sql << 'EXTERNAL ' if options[:external]
-        sql << 'TEMPORARY ' if options[:temp]
-        sql << 'TABLE '
-        sql << 'IF NOT EXISTS ' if options[:if_not_exists]
+        sql << "CREATE "
+        sql << "EXTERNAL " if options[:external]
+        sql << "TEMPORARY " if options[:temp]
+        sql << "TABLE "
+        sql << "IF NOT EXISTS " if options[:if_not_exists]
         sql << quote_schema_table(name)
         sql
       end
@@ -146,7 +146,7 @@ module Sequel
         end
 
         sql = String.new
-        sql << create_view_sql_append_columns("CREATE #{'OR REPLACE 'if options[:replace]}#{'TEMPORARY ' if options[:temp]}VIEW#{' IF NOT EXISTS' if options[:if_not_exists]} #{quote_schema_table(name)}", options[:columns])
+        sql << create_view_sql_append_columns("CREATE #{'OR REPLACE ' if options[:replace]}#{'TEMPORARY ' if options[:temp]}VIEW#{' IF NOT EXISTS' if options[:if_not_exists]} #{quote_schema_table(name)}", options[:columns])
 
         if source
           source = source.sql if source.is_a?(Dataset)
@@ -187,28 +187,28 @@ module Sequel
         end
 
         if options[:options]
-          sql << ' OPTIONS ('
+          sql << " OPTIONS ("
           options[:options].each do |k, v|
             sql << literal(k.to_s) << "=" << literal(v.to_s)
           end
-          sql << ')'
+          sql << ")"
         end
 
         sql
       end
 
       def _append_column_list_sql(sql, columns)
-        sql << '('
+        sql << "("
         schema_utility_dataset.send(:identifier_list_append, sql, Array(columns))
-        sql << ')'
+        sql << ")"
       end
 
       def drop_schema_sql(schema_name, opts)
         sql = String.new
-        sql << 'DROP SCHEMA '
-        sql << 'IF EXISTS ' if opts[:if_exists]
+        sql << "DROP SCHEMA "
+        sql << "IF EXISTS " if opts[:if_exists]
         sql << literal(schema_name)
-        sql << ' CASCADE' if opts[:cascade]
+        sql << " CASCADE" if opts[:cascade]
         sql
       end
 
@@ -222,7 +222,7 @@ module Sequel
         m = output_identifier_meth(opts[:dataset])
         im = input_identifier_meth(opts[:dataset])
         metadata_dataset.with_sql("DESCRIBE #{"#{im.call(opts[:schema])}." if opts[:schema]}#{im.call(table)}").map do |row|
-          [m.call(row[:col_name]), {:db_type=>row[:data_type], :type=>schema_column_type(row[:data_type])}]
+          [ m.call(row[:col_name]), { db_type: row[:data_type], type: schema_column_type(row[:data_type]) } ]
         end
       end
 
@@ -230,27 +230,27 @@ module Sequel
         true
       end
 
-      def type_literal_generic_file(column)
-        'binary'
+      def type_literal_generic_file(_column)
+        "binary"
       end
 
-      def type_literal_generic_float(column)
-        'float'
+      def type_literal_generic_float(_column)
+        "float"
       end
 
-      def type_literal_generic_string(column)
-        'string'
+      def type_literal_generic_string(_column)
+        "string"
       end
     end
 
     module DatasetMethods
       include UnmodifiedIdentifiers::DatasetMethods
 
-      Dataset.def_sql_method(self, :select, [['if opts[:values]', %w'values'], ['else', %w'with select distinct columns from join where group having compounds order limit']])
+      Dataset.def_sql_method(self, :select, [ [ "if opts[:values]", %w[values] ], [ "else", %w[with select distinct columns from join where group having compounds order limit] ] ])
 
       def date_add_sql_append(sql, da)
         expr = da.expr
-        cast_type = da.cast_type || Time
+        da.cast_type || Time
 
         h = Hash.new(0)
         da.interval.each do |k, v|
@@ -274,9 +274,9 @@ module Sequel
 
       # Route prepared statement / bound variable deletes through the
       # emulated delete path, since Spark does not support native DELETE.
-      def call(type, bind_variables=OPTS, *values, &)
+      def call(type, bind_variables = OPTS, *values, &)
         if type == :delete
-          ps = to_prepared_statement(type, values, :extend=>send(:bound_variable_modules))
+          ps = to_prepared_statement(type, values, extend: send(:bound_variable_modules))
           ps.bind(bind_variables).delete
         else
           super
@@ -301,7 +301,7 @@ module Sequel
         updated_vals = columns.values
 
         _with_temp_table do |tmp_name|
-          db.from(tmp_name).insert([*updated_cols, *other_cols], select(*updated_vals, *other_cols))
+          db.from(tmp_name).insert([ *updated_cols, *other_cols ], select(*updated_vals, *other_cols))
         end
       end
 
@@ -385,9 +385,9 @@ module Sequel
       private def _with_temp_table
         n = count
         table_name = first_source_table
-        tmp_name = literal(table_name).gsub('`', '') + "__sequel_delete_emulate"
+        tmp_name = literal(table_name).gsub("`", "") + "__sequel_delete_emulate"
         db.drop_table?(tmp_name)
-        db.create_table(tmp_name, :as=>select_all.invert)
+        db.create_table(tmp_name, as: select_all.invert)
         overwrite_started = false
         overwrite_verified = false
         begin
@@ -405,7 +405,7 @@ module Sequel
           unless actual == expected
             raise Sequel::Error, "emulated delete/update of #{literal(table_name)} left #{actual} rows, " \
                                  "expected #{expected}; the rows to keep remain in #{tmp_name}, which has " \
-                                 'deliberately not been dropped'
+                                 "deliberately not been dropped"
           end
 
           overwrite_verified = true
@@ -458,7 +458,7 @@ module Sequel
       end
 
       def quoted_identifier_append(sql, name)
-        sql << '`' << name.to_s.gsub('`', '``') << '`'
+        sql << "`" << name.to_s.gsub("`", "``") << "`"
       end
 
       def requires_sql_standard_datetimes?
@@ -470,7 +470,7 @@ module Sequel
       end
 
       def literal_blob_append(sql, v)
-        sql << "to_binary('" << [v].pack("m*").gsub("\n", "") << "', 'base64')"
+        sql << "to_binary('" << [ v ].pack("m*").gsub("\n", "") << "', 'base64')"
       end
 
       # Spark requires DATE 'YYYY-MM-DD' syntax instead of plain quoted strings
@@ -503,7 +503,7 @@ module Sequel
         "true"
       end
 
-      def supports_cte?(type=:select)
+      def supports_cte?(type = :select)
         type == :select
       end
 
@@ -533,8 +533,8 @@ module Sequel
 
       # Handle forward references in existing CTEs in the dataset by inserting this
       # dataset before any dataset that would reference it.
-      def with(name, dataset, opts=OPTS)
-        opts = Hash[opts].merge!(:name=>name, :dataset=>dataset).freeze
+      def with(name, dataset, opts = OPTS)
+        opts = Hash[opts].merge!(name: name, dataset: dataset).freeze
         references = ReferenceExtractor.references(dataset)
 
         if with = @opts[:with]
@@ -542,7 +542,7 @@ module Sequel
           existing_references = @opts[:with_references]
 
           if referencing_dataset = existing_references[literal(name)]
-            unless i = with.find_index{|o| o[:dataset].equal?(referencing_dataset)}
+            unless i = with.find_index { |o| o[:dataset].equal?(referencing_dataset) }
               raise Sequel::Error, "internal error finding referencing dataset"
             end
 
@@ -562,27 +562,27 @@ module Sequel
           # Assume we will insert the dataset at the end, so existing references have priority
           references = references.merge(existing_references)
         else
-          with = [opts]
+          with = [ opts ]
         end
 
-        clone(:with=>with.freeze, :with_references=>references.freeze)
+        clone(with: with.freeze, with_references: references.freeze)
       end
 
       private def select_values_sql(sql)
-        sql << 'VALUES '
+        sql << "VALUES "
         expression_list_append(sql, opts[:values])
       end
     end
 
     # ReferenceExtractor extracts references from datasets that will be used as CTEs.
     class ReferenceExtractor < ASTTransformer
-      TABLE_IDENTIFIER_KEYS = [:from, :join].freeze
-      COLUMN_IDENTIFIER_KEYS = [:select, :where, :having, :order, :group, :compounds].freeze
+      TABLE_IDENTIFIER_KEYS = [ :from, :join ].freeze
+      COLUMN_IDENTIFIER_KEYS = [ :select, :where, :having, :order, :group, :compounds ].freeze
 
       # Returns a hash of literal string identifier keys referenced by the given
       # dataset with the given dataset as the value for each key.
       def self.references(dataset)
-        new(dataset).tap{|ext| ext.transform(dataset)}.references
+        new(dataset).tap { |ext| ext.transform(dataset) }.references
       end
 
       attr_reader :references
@@ -619,10 +619,10 @@ module Sequel
         case o
         when Sequel::Dataset
           # Special case FROM/JOIN, because identifiers inside refer to tables and not columns
-          TABLE_IDENTIFIER_KEYS.each{|k| o.opts[k]&.each{|jc| table_identifier_extract(jc)}}
+          TABLE_IDENTIFIER_KEYS.each { |k| o.opts[k]&.each { |jc| table_identifier_extract(jc) } }
 
           # Look in other keys that may have qualified references or subqueries
-          COLUMN_IDENTIFIER_KEYS.each{|k| v(o.opts[k])}
+          COLUMN_IDENTIFIER_KEYS.each { |k| v(o.opts[k]) }
         when SQL::QualifiedIdentifier
           # If a qualified identifier has a qualified identifier as a key,
           # such as schema.table.column, ignore it, because CTE identifiers shouldn't
