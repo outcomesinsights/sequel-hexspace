@@ -1,23 +1,66 @@
 name: Dependabot auto-merge
 
+# Stays `pull_request`, deliberately. `pull_request_target` would run this
+# workflow's write token and the base repo's secrets against head-repo code,
+# which is the standard way an auto-merge workflow becomes an arbitrary-write
+# primitive. dependabot/fetch-metadata's README offers `pull_request_target` as
+# its example because GitHub gives Dependabot-triggered `pull_request` runs a
+# read-only token by default -- but this repo has the setting that grants them
+# write access, and it works: the run on PR #39 (simplecov 1.2.0 -> 1.3.1)
+# approved and auto-merged, landing 944ebd9. Do not "fix" the trigger.
 on: pull_request
 
-# An explicit permissions block sets every scope it does not name to none, and
-# no linter in this repo catches one that is too narrow to function -- see
-# docs/workflow-permissions.md before narrowing this or moving it per-job. These
-# are the repo's broadest grants, so this is where that mistake costs most.
-permissions:
-  contents: write
-  pull-requests: write
+# Every action below is pinned to a full commit SHA with the version in a
+# comment: a tag can be moved to other code, a SHA cannot, and this workflow
+# holds the repo's broadest grants. Dependabot (github-actions ecosystem,
+# monthly) proposes the bumps -- and note that this file is the thing that would
+# auto-merge them.
+#
+# Deny by default: every scope the job below does not name is none. The grants
+# live on the job rather than here, and are reasoned out there.
+permissions: {}
 
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+
+    # The author of the PR, not whoever triggered the run. `github.actor` is
+    # spoofable for this purpose: it is the actor of THIS event, so a later
+    # event on a Dependabot PR, or a re-run started by a person, presents a
+    # different actor -- while the PR's author is fixed once the PR is opened
+    # and cannot be changed. This is the only thing standing between a
+    # non-Dependabot PR and the write scopes below, so it is worth the
+    # precision. Flagged by zizmor's bot-conditions rule; the payload path is
+    # the one dependabot/fetch-metadata's own README uses in every example, and
+    # it was checked against this repo's real data: PR #39's `user.login` is
+    # exactly `dependabot[bot]` and its `user` object has no `name` key at all,
+    # so a slip to `.user.name` would evaluate to null, make this condition
+    # false, and silently stop auto-merge with no error anywhere.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+
+    # These are the repo's broadest grants and they are all load-bearing:
+    #
+    #   - `pull-requests: write` for `gh pr review --approve`. It also covers
+    #     fetch-metadata, which only reads the PR (its README's minimal example
+    #     asks for `pull-requests: read`).
+    #   - `contents: write` for `gh pr merge --auto`. Enabling auto-merge is a
+    #     repository write, not just a PR write, and GitHub requires both
+    #     scopes together -- as does fetch-metadata's own auto-merge example.
+    #
+    # Drop either one and the job does not fail loudly; the `gh` call errors and
+    # the PR simply sits unmerged. Nothing in this repo's gate catches a block
+    # that is too narrow to function -- actionlint and zizmor were both probed
+    # against exactly that defect and both stay silent. Read
+    # docs/workflow-permissions.md before narrowing this, and add a scope here
+    # rather than at the workflow level if you add a step.
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
       - name: Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v3
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
