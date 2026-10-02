@@ -55,7 +55,7 @@ pre-commit: fmt-check lint hygiene
 # fmt-check/lint/test. HardTabs and TrailingWhitespace were deliberately dropped
 # because they fight shfmt, .tsv files, and generated output.
 #
-# Check for conflict markers and malformed YAML/JSON.
+# Check for conflict markers, malformed YAML/JSON, and workflow defects.
 hygiene:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -69,4 +69,39 @@ hygiene:
     for f in $(git ls-files '*.json'); do
       jq empty "$f" 2>/dev/null || { echo "invalid JSON: $f"; rc=1; }
     done
+
+    # The YAML loop above proves only that a file PARSES. A workflow can parse
+    # perfectly and still be semantically broken, and release.yml -- the gate on
+    # publishing -- shipped exactly that on 2026-10-01: its verify job carried an
+    # explicit `permissions: actions: read`, and an explicit permissions block
+    # sets every scope it does not name to none, so the checkout step added
+    # beside it could not have fetched the repo. Every release would have failed,
+    # for a reason that looks nothing like its cause. Valid YAML throughout;
+    # hygiene green throughout.
+    #
+    # actionlint type-checks workflow syntax, validates expressions and
+    # `github`/`needs`/`steps` contexts, checks action input names and
+    # `runs-on` labels, and runs shellcheck over every `run:` block. Run from
+    # the repo root with no arguments it finds .github/workflows itself, so a
+    # new workflow file is covered the day it lands.
+    #
+    # Invoked through `mise x` rather than the bare `actionlint` on PATH: that
+    # is a mise shim with no version set, and it dies with "No version is set
+    # for shim: actionlint" rather than linting anything. The version is pinned
+    # so a new actionlint release cannot turn this gate red on workflows nobody
+    # touched -- bump it deliberately. If mise or actionlint is missing this
+    # fails loudly; it must never skip quietly, which is how a gate goes
+    # toothless without anyone noticing.
+    #
+    # Cost is 0.07s against this recipe's 0.54s, which is why it sits in
+    # hygiene -- running at commit stage as well as pre-push -- instead of
+    # pre-push only.
+    #
+    # WHAT THIS DOES NOT CATCH, measured against 1.7.12: actionlint's own
+    # `permissions` check validates scope NAMES and VALUES only. It has no model
+    # of which permissions an action requires, so `permissions: {}` next to an
+    # `actions/checkout` step lints clean -- and so does the release.yml defect
+    # described above. That class of defect is still ungated here.
+    mise x actionlint@1.7.12 -- actionlint -no-color -oneline || rc=1
+
     exit $rc
