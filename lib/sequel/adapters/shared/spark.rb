@@ -303,14 +303,47 @@ module Sequel
         end
       end
 
+      # Build `<table>__sequel_delete_emulate` holding the rows the operation
+      # should leave behind, let the caller adjust it, then swap it in for the
+      # original table.
+      #
+      # Both the leading drop and the ensure exist because this sequence is not
+      # atomic and Spark's CREATE TABLE is not idempotent, so a process that
+      # dies part way through strands the temp table and every later delete or
+      # update on the same table then fails with TABLE_OR_VIEW_ALREADY_EXISTS --
+      # an error that names a table nothing in the caller's code refers to.
+      # This gem's own suite was poisoned that way on 2026-10-01: one aborted
+      # run left `a__sequel_delete_emulate` behind and the next run reported 51
+      # errors in tests that never touch table `a`.
+      #
+      # The ensure handles a raise or an interrupt, which still unwinds; the
+      # leading drop handles the rest (SIGKILL, a lost connection, a crash),
+      # where nothing of ours gets to run at all. Each names exactly the one
+      # table this method creates and owns -- neither enumerates the server,
+      # which may be shared with tables belonging to nobody here.
+      #
+      # The ensure drops the temp table only while the original is still
+      # present, so the temp table is a discardable copy. Once the original has
+      # been dropped the temp table holds the only copy of the data and must be
+      # left alone. That leaves a window -- a death between the drop and the
+      # rename loses the original table, with its rows sitting under the temp
+      # name -- which no ensure can close and which needs a non-destructive
+      # swap instead. See sequel-hexspace-rho.
       private def _with_temp_table
         n = count
         table_name = first_source_table
         tmp_name = literal(table_name).gsub('`', '') + "__sequel_delete_emulate"
+        db.drop_table?(tmp_name)
         db.create_table(tmp_name, :as=>select_all.invert)
-        yield tmp_name if defined?(yield)
-        db.drop_table(table_name)
-        db.rename_table(tmp_name, table_name)
+        original_dropped = false
+        begin
+          yield tmp_name if defined?(yield)
+          db.drop_table(table_name)
+          original_dropped = true
+          db.rename_table(tmp_name, table_name)
+        ensure
+          db.drop_table?(tmp_name) unless original_dropped
+        end
         n
       end
 
