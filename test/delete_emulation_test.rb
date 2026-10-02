@@ -162,3 +162,149 @@ describe "emulated delete/update temp table" do
     _(DB[:items__sequel_delete_emulate].select_order_map(:i)).must_equal [ 2 ]
   end
 end
+
+# The temp table's NAME, which is the whole of sequel-hexspace-5hh. Until
+# 2026-10-02 it was built by stripping the backticks out of the literalized
+# target, which collapsed a qualified name into one identifier containing a
+# dot. These assert on generated SQL rather than on the Ruby object, because
+# where the server puts the table is the thing under test, and they use the
+# mock database so that the catalog-qualified case is covered whether or not
+# the live server has a second catalog.
+describe "emulated delete/update temp table name" do
+  before do
+    @db = Sequel.connect("mock://spark")
+    @db.sqls
+  end
+
+  def tmp_sql(table_name)
+    @db[table_name].send(:_temp_table_name, table_name).then { |t| @db.from(t).sql }
+  end
+
+  # The documented convention, and the case that has always worked. This must
+  # stay byte-for-byte what it was: the README tells consumers to look for
+  # exactly this name, and `<table>__sequel_delete_emulate` is the only reason
+  # a recovery copy is findable at all.
+  it "should append the suffix for an unqualified target" do
+    _(tmp_sql(:items)).must_equal "SELECT * FROM `items__sequel_delete_emulate`"
+    _(tmp_sql(Sequel.identifier(:items))).must_equal "SELECT * FROM `items__sequel_delete_emulate`"
+  end
+
+  # The defect. The old derivation produced the single identifier
+  # `sch.items__sequel_delete_emulate` -- a table in the DEFAULT database whose
+  # name contains a dot, which Spark rejects outright as a name.
+  it "should keep a schema qualifier intact and suffix only the table" do
+    _(tmp_sql(Sequel[:sch][:items]))
+      .must_equal "SELECT * FROM `sch`.`items__sequel_delete_emulate`"
+  end
+
+  # Spark names can be catalog.schema.table, which Sequel nests as a
+  # QualifiedIdentifier inside a QualifiedIdentifier. Suffixing the last
+  # component rather than reassembling the name handles that for free.
+  it "should keep a catalog and schema qualifier intact" do
+    _(tmp_sql(Sequel[:cat][:sch][:items]))
+      .must_equal "SELECT * FROM `cat`.`sch`.`items__sequel_delete_emulate`"
+  end
+end
+
+# The same rules c5q and rho pinned for an unqualified target, against a
+# schema-qualified one. Nothing here replaces one of their guards -- the
+# unqualified derivation is unchanged, so all of them still pass; this group is
+# additional, because a qualified target was a shape the suite never exercised
+# and the operation raised on it at CREATE TABLE.
+#
+# This group owns a schema of its own rather than reusing schema_test.rb's
+# `sequel_test1`, which asserts its own exact contents. The leading drop_schema
+# is the same defensive statement schema_test.rb uses and for the same reason:
+# CREATE SCHEMA is not idempotent, so a run killed before `after` otherwise
+# poisons every later run. Both statements name this one schema; nothing
+# enumerates the server.
+describe "emulated delete/update against a schema-qualified table" do
+  def schema_name = :sequel_test_delete_emulate
+  def qualified = Sequel[schema_name][:items]
+  def temp_table = Sequel[schema_name][:items__sequel_delete_emulate]
+
+  # The single dotted identifier the old derivation produced, in the DEFAULT
+  # database. Named so the tests below can assert it is never created.
+  def dotted = "#{schema_name}.items__sequel_delete_emulate"
+
+  before do
+    DB.drop_schema(schema_name, if_exists: true, cascade: true)
+    DB.create_schema(schema_name)
+    DB.create_table(qualified) { Integer :i }
+    DB[qualified].import([ :i ], [ [ 1 ], [ 2 ] ])
+  end
+
+  after do
+    DB.drop_schema(schema_name, if_exists: true, cascade: true)
+    DB.drop_table?(dotted)
+  end
+
+  it "should delete from a qualified table" do
+    _(DB[qualified].where(i: 1).delete).must_equal 1
+
+    _(DB[qualified].select_order_map(:i)).must_equal [ 2 ]
+    _(DB.tables(schema: schema_name)).must_equal [ :items ]
+    _(DB.table_exists?(dotted)).must_equal false
+  end
+
+  it "should update a qualified table" do
+    _(DB[qualified].where(i: 1).update(i: 9)).must_equal 1
+
+    _(DB[qualified].select_order_map(:i)).must_equal [ 2, 9 ]
+    _(DB.tables(schema: schema_name)).must_equal [ :items ]
+    _(DB.table_exists?(dotted)).must_equal false
+  end
+
+  # The acceptance criterion: the recovery copy must be somewhere a human can
+  # find it. "Somewhere" is the target's own schema, under the name the README
+  # names -- not a dotted name in `default`, where the old derivation sent it
+  # and where Spark refused to create it at all.
+  it "should leave the recovery copy in the target's own schema when the overwrite does not finish" do
+    ds = DB[qualified].where(i: 1).with_extend do
+      private def _overwrite_from_temp_table(*)
+        raise Sequel::Error, "simulated abort inside the overwrite"
+      end
+    end
+
+    _ { ds.delete }.must_raise Sequel::Error
+
+    _(DB.table_exists?(temp_table)).must_equal true
+    _(DB[temp_table].select_order_map(:i)).must_equal [ 2 ]
+    _(DB.table_exists?(dotted)).must_equal false
+
+    # rho's rule, unchanged by qualification: the original survives intact.
+    _(DB[qualified].select_order_map(:i)).must_equal [ 1, 2 ]
+  end
+
+  # rho's verification error names the temp table so that a consumer who never
+  # reads this source can still find the rows. For a qualified target that name
+  # has to be the qualified one -- and it has to be literalized, because
+  # interpolating a Sequel::SQL::QualifiedIdentifier yields
+  # `#<Sequel::SQL::QualifiedIdentifier:0x...>`, which names nothing.
+  it "should name the qualified temp table in the verification error" do
+    ds = DB[qualified].where(i: 1).with_extend do
+      private def _overwrite_from_temp_table(*)
+        # Deliberately does nothing.
+      end
+    end
+
+    err = _ { ds.delete }.must_raise Sequel::Error
+    _(err.message).must_include DB.literal(temp_table)
+    _(err.message).wont_match(/QualifiedIdentifier/)
+
+    _(DB[temp_table].select_order_map(:i)).must_equal [ 2 ]
+  end
+
+  # The leading drop_table? has to name the qualified temp table too, or a
+  # stranded one makes every later qualified delete fail with
+  # TABLE_OR_VIEW_ALREADY_EXISTS -- the poisoning c5q fixed for the
+  # unqualified case.
+  it "should tolerate a stranded qualified temp table" do
+    DB.create_table(temp_table) { Integer :i }
+
+    _(DB[qualified].where(i: 1).delete).must_equal 1
+
+    _(DB[qualified].select_order_map(:i)).must_equal [ 2 ]
+    _(DB.tables(schema: schema_name)).must_equal [ :items ]
+  end
+end
