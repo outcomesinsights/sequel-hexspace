@@ -14,6 +14,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# No permissions block, so every job here runs on the default grant, which
+# includes the `contents: read` that each `actions/checkout` below needs. If you
+# add one, it REPLACES that default rather than adding to it, and nothing in the
+# hygiene gate will tell you what you just revoked. Read
+# docs/workflow-permissions.md first.
+
 jobs:
   lint:
     runs-on: ubuntu-latest

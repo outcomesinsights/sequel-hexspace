@@ -72,12 +72,19 @@ hygiene:
 
     # The YAML loop above proves only that a file PARSES. A workflow can parse
     # perfectly and still be semantically broken, and release.yml -- the gate on
-    # publishing -- shipped exactly that on 2026-10-01: its verify job carried an
-    # explicit `permissions: actions: read`, and an explicit permissions block
-    # sets every scope it does not name to none, so the checkout step added
-    # beside it could not have fetched the repo. Every release would have failed,
-    # for a reason that looks nothing like its cause. Valid YAML throughout;
-    # hygiene green throughout.
+    # publishing -- came one commit from exactly that. An explicit permissions
+    # block sets every scope it does not name to none, so the `verify` job's
+    # `permissions: actions: read` would have revoked the `contents: read` that
+    # the checkout step added in f20fda8 needs, and every release would have
+    # failed for a reason that looks nothing like its cause. Valid YAML
+    # throughout; hygiene green throughout.
+    #
+    # CORRECTION (verified against git history): that defect was never
+    # committed. f20fda8 added `contents: read`, the checkout, and a comment
+    # about this hazard in one diff, and 2.0.0 released through the job the same
+    # day. An earlier version of this comment said it "shipped on 2026-10-01";
+    # it did not. The defect CLASS is real and ungated, which is the point here,
+    # but do not repeat the incident claim -- see docs/workflow-permissions.md.
     #
     # actionlint type-checks workflow syntax, validates expressions and
     # `github`/`needs`/`steps` contexts, checks action input names and
@@ -101,7 +108,22 @@ hygiene:
     # `permissions` check validates scope NAMES and VALUES only. It has no model
     # of which permissions an action requires, so `permissions: {}` next to an
     # `actions/checkout` step lints clean -- and so does the release.yml defect
-    # described above. That class of defect is still ungated here.
+    # described above. That class of defect is still ungated here, deliberately.
+    #
+    # DO NOT REACH FOR zizmor TO CLOSE IT -- it was probed, 1.30.1, and it
+    # cannot. Its output on the defect shape is IDENTICAL to its output on the
+    # fixed shape at every persona, so no exit code derived from it discriminates
+    # the two; and the only shape it flags for permissions at its default persona
+    # is a job with NO block, which is correct code. It models permissions as a
+    # security surface (too BROAD is a finding) and has no model of "too narrow
+    # to function" either. Config can suppress its rules, not add one.
+    #
+    # The accepted gap, the full probe matrix, and the fail-closed argument for
+    # accepting it are in docs/workflow-permissions.md, which is also where
+    # someone editing a permissions block is pointed. A hand-rolled
+    # checkout-only rule was rejected on purpose: right about one action, silent
+    # about every other, and it would make this gate LOOK like it covered the
+    # class. Re-probe with ./docs/permissions-gate-probe.sh.
     mise x actionlint@1.7.12 -- actionlint -no-color -oneline || rc=1
 
     exit $rc

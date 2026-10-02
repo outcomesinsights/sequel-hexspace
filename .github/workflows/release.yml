@@ -40,6 +40,15 @@ jobs:
     # An explicit permissions block sets every scope it does not name to none,
     # so `contents: read` has to be spelled out or the checkout below cannot
     # fetch the repo. `actions: read` is for the gh api call.
+    #
+    # Do not "tidy" `contents: read` away as unused. No step names it, but the
+    # checkout above cannot work without it, and no linter in this repo catches
+    # its absence -- actionlint and zizmor were both probed against exactly this
+    # shape and both stay silent. This block had `actions: read` alone until the
+    # checkout arrived in f20fda8, which added both together; drop the one and
+    # keep the other and every release fails, for a reason that reads nothing
+    # like its cause. Before you narrow this, or add a step to this job, read
+    # docs/workflow-permissions.md.
     permissions:
       actions: read
       contents: read
@@ -88,7 +97,9 @@ jobs:
     runs-on: ubuntu-latest
 
     # Required by the OIDC token exchange. Scoped to this job rather than the
-    # workflow, per RubyGems' guidance.
+    # workflow, per RubyGems' guidance. Dropping `id-token: write` from this
+    # block fails the token exchange with a message about OIDC, not about
+    # permissions -- see docs/workflow-permissions.md before narrowing it.
     permissions:
       contents: write
       id-token: write
