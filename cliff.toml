@@ -12,10 +12,14 @@
 # Why draft-only, rather than letting cliff own the file from 2.1.0 onward or
 # append beneath the existing entries: the 2.0.0 section (462fca9) carries prose
 # no generator can produce -- a "Note on the gap since 1.0.0" recording that 1.0.1
-# was tagged but never published, so eighteen months of work reached users for the
-# first time in a single release. Ownership or appending puts that paragraph one
-# careless flag away from being overwritten, or orphaned above a machine-written
-# section that silently contradicts it. Draft-only also suits what this generator
+# was never released (only a gemspec bump, at ce8b23e, never tagged), so eighteen
+# months of work reached users for the first time in a single release. The only
+# tags this repo has ever had are v1.0.0 and v2.0.0, locally and on origin --
+# check `git tag -l` rather than any prose about it, this one included, because
+# three successive passes over that paragraph preserved an earlier claim that
+# 1.0.1 HAD been tagged. Ownership or appending puts that paragraph one careless
+# flag away from being overwritten, or orphaned above a machine-written section
+# that silently contradicts it. Draft-only also suits what this generator
 # actually emits (see the `^fix` note below): the draft needs an editor, so the
 # design should not pretend otherwise.
 #
@@ -28,9 +32,28 @@
 # BREAKING CHANGE body collapses to one line with doubled spaces at the old
 # paragraph breaks, which mdformat rewrites. Run `just fmt` after pasting.
 #
-# Only changes to the shipped gem count. Tooling, CI, tests, docs and dependency
-# bumps are skipped, so a week of nothing but those yields no commits, no section
-# and no version bump. A breaking change is never skipped, whatever its type.
+# Only changes to the shipped gem count. Tooling, CI, tests, docs and MECHANICAL
+# dependency bumps are skipped, so a week of nothing but those yields no commits,
+# no section and no version bump. A breaking change is never skipped, whatever its
+# type.
+#
+# `^build` is the exception to that list and is NOT skipped -- see its parser
+# below. The word "mechanical" above is carrying the whole distinction: a
+# `chore(deps)` bump is Dependabot moving a resolved version and is skipped, while
+# a `build(deps)` change is somebody deliberately rewriting a declared requirement
+# and is consumer-visible.
+#
+# What this config still cannot catch, stated so nobody mistakes it for covered:
+# a change to a RUNTIME `s.add_dependency` requirement that arrives under a
+# skipped type anyway. That is not hypothetical -- 07b9b82, a Dependabot
+# `chore(deps)`, widened `thrift` from `< 0.24` to `< 0.25`, which is a change to
+# what a consumer's bundler may resolve, and it shipped without a changelog line.
+# Of the three commits that have altered a runtime requirement since v1.0.0, two
+# were invisible here (94f85c8 `build(deps)`, 07b9b82 `chore(deps)`) and only
+# e3a7e93 `fix(spark)` drafted. Un-skipping `^build` closes the first. The second
+# is closed by a human step in docs/release-setup.md's "Cutting a release", which
+# diffs the gemspec's `add_dependency` lines across the release range. No commit
+# type can close it, because the type is chosen by Dependabot.
 
 [changelog]
 header = ""
@@ -85,8 +108,11 @@ conventional_commits = true
 filter_unconventional = true
 filter_commits = true
 # Load-bearing, not decoration. A `!` or BREAKING CHANGE commit is kept -- and
-# bumps the version -- even when its type is one skipped below, e.g. a `build!:`
-# raising the Ruby floor. Measured 2026-10-01 against 462fca9 (`feat!: require
+# bumps the version -- even when its type is one skipped below, e.g. a `chore!:`
+# or a `ci!:` that raises the Ruby floor. (`build!:` was the example here until
+# `^build` stopped being skipped; it is now kept by its own parser, so it no
+# longer demonstrates anything about this setting.) Measured 2026-10-01 against
+# 462fca9 (`feat!: require
 # Ruby >= 3.3`) with `^feat` forced into the skip list: true gives v3.0.0, false
 # gives "nothing to bump". So without this a breaking change filed under a
 # tooling type ships no release at all.
@@ -102,14 +128,39 @@ sort_commits = "newest"
 commit_parsers = [
     # Not part of the shipped gem: no changelog entry, no release. `^chore` is
     # what covers Dependabot's `chore(deps):` and `chore(deps-dev):`, and so what
-    # keeps a deps-only range from producing a version.
+    # keeps a deps-only range from producing a version. Keep it skipped -- but know
+    # that it is the one skip with a live hole in it: a Dependabot group bump can
+    # also widen a RUNTIME requirement (07b9b82 did, `thrift < 0.24` -> `< 0.25`),
+    # and no rule here can tell that apart from a dev-dep bump. That case is
+    # covered by the gemspec diff in docs/release-setup.md, not by this file.
     { message = "^chore", skip = true },
     { message = "^ci", skip = true },
-    { message = "^build", skip = true },
     { message = "^test", skip = true },
     { message = "^style", skip = true },
     { message = "^docs", skip = true },
     { message = "^bd:", skip = true },
+
+    # NOT skipped, unlike the tooling types above, and the reason is the trap this
+    # rule exists to defuse: `build:` is the honest conventional type for a change
+    # to a declared gem dependency, so picking the type CORRECTLY is what used to
+    # lose the change. 94f85c8 added a runtime ceiling (`hexspace < 0.4`) under
+    # `build(deps)` precisely rather than gaming it to `fix:` to clear the filter,
+    # and the draft then said nothing about it. A rule of "remember to write
+    # `fix:`" trades a true commit message for a visible changelog and will be got
+    # wrong by whoever is in a hurry, so the config absorbs the cost instead.
+    #
+    # Grouped under "Changed" rather than a "Dependencies" heading of its own
+    # because the headings here match CHANGELOG.md's existing four on purpose (see
+    # the note above); a fifth would not paste in as part of the same file.
+    #
+    # Cost, measured rather than assumed: `^build` appears exactly ONCE in the
+    # whole history (94f85c8, 2026-10-02) and that one occurrence is
+    # consumer-visible, so the draft noise this admits is currently zero. It is
+    # the same bargain the `^fix` note below spells out -- an internal `build:`
+    # will draft an entry and justify a patch bump, and the human editing the
+    # draft deletes it. Dependabot is unaffected: it writes `chore(deps)`, which
+    # is still skipped, so a deps-only range still yields no version.
+    { message = "^build", group = "Changed" },
 
     { message = "^feat", group = "Added" },
     # Known over-inclusion, left as-is on purpose: this history has `fix(just)`,
