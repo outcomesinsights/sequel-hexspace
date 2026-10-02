@@ -326,9 +326,10 @@ module Sequel
         end
       end
 
-      # Build `<table>__sequel_delete_emulate` holding the rows the operation
-      # should leave behind, let the caller adjust it, then INSERT OVERWRITE
-      # those rows back into the original table.
+      # Build `<table>__sequel_delete_emulate` -- in the target's own schema,
+      # see _temp_table_name -- holding the rows the operation should leave
+      # behind, let the caller adjust it, then INSERT OVERWRITE those rows back
+      # into the original table.
       #
       # The original table object is never dropped. That is deliberate: until
       # 2026-10-02 this method dropped the original and renamed the temp table
@@ -406,7 +407,7 @@ module Sequel
       private def _with_temp_table
         n = count
         table_name = first_source_table
-        tmp_name = literal(table_name).gsub("`", "") + "__sequel_delete_emulate"
+        tmp_name = _temp_table_name(table_name)
         db.drop_table?(tmp_name)
         db.create_table(tmp_name, as: select_all.invert)
         overwrite_started = false
@@ -425,8 +426,8 @@ module Sequel
           actual = db.from(table_name).count
           unless actual == expected
             raise Sequel::Error, "emulated delete/update of #{literal(table_name)} left #{actual} rows, " \
-                                 "expected #{expected}; the rows to keep remain in #{tmp_name}, which has " \
-                                 "deliberately not been dropped"
+                                 "expected #{expected}; the rows to keep remain in #{literal(tmp_name)}, " \
+                                 "which has deliberately not been dropped"
           end
 
           overwrite_verified = true
@@ -434,6 +435,55 @@ module Sequel
           db.drop_table?(tmp_name) if overwrite_verified || !overwrite_started
         end
         n
+      end
+
+      # The recovery table's name: the target's own name with
+      # `__sequel_delete_emulate` appended, IN THE TARGET'S OWN SCHEMA. The
+      # suffix goes on the LAST component only, so any qualifier -- a schema,
+      # or a catalog and a schema -- survives intact.
+      #
+      # Until 2026-10-02 this was `literal(table_name).gsub("`", "") +
+      # "__sequel_delete_emulate"`, which stripped the backticks that were
+      # keeping a qualified name's parts apart: `sch`.`items` collapsed to the
+      # single String "sch.items__sequel_delete_emulate". Sequel does not split
+      # a String on the dot -- Dataset#schema_and_table returns [nil, the whole
+      # string] for one -- so that went to the server as ONE identifier
+      # containing a dot, naming the default database rather than `sch`.
+      #
+      # That did not merely misplace the recovery copy, it broke the operation
+      # outright, which is worth recording because the bug report assumed
+      # otherwise. Spark refuses the name at CREATE TABLE:
+      #
+      #   `sch.items__sequel_delete_emulate` is not a valid name for
+      #   tables/databases. Valid names only contain alphabet characters,
+      #   numbers and _.
+      #
+      # Measured against this gem's test server on 2026-10-02. So emulated
+      # DELETE and UPDATE against a schema-qualified dataset never worked at
+      # all, and no such temp table can ever have existed anywhere for a
+      # consumer to depend on. Appending to the last component is therefore a
+      # strict widening of the `<table>__sequel_delete_emulate` convention the
+      # README documents, not a change to it -- the unqualified case below is
+      # byte-for-byte what it was.
+      #
+      # A UNIQUE per-operation suffix was considered and rejected, even though
+      # it would close the concurrent-operation collision the README documents
+      # as a hazard. It would put the rows to keep under a runtime-generated
+      # name that appears nowhere in the caller's source, and that is the exact
+      # property sequel-hexspace-rho removed from this method. It is also
+      # unrecoverable in the cases recovery exists for: a SIGKILL or a lost
+      # connection raises nothing, so there is no error message for a generated
+      # name to be reported in, and the leading drop_table? above cannot find
+      # it on the next run either. A predictable name is what makes the README's
+      # "look there first" instruction executable. Concurrency stays the
+      # caller's problem, documented rather than solved.
+      private def _temp_table_name(table_name)
+        case table_name
+        when SQL::QualifiedIdentifier
+          SQL::QualifiedIdentifier.new(table_name.table, "#{table_name.column}__sequel_delete_emulate")
+        else
+          literal(table_name).gsub("`", "") + "__sequel_delete_emulate"
+        end
       end
 
       # Replace the whole contents of +table_name+ with the rows in +tmp_name+,

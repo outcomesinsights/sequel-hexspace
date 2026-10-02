@@ -14,6 +14,18 @@ Sequel::Dataset#update are emulated. Both run as:
 3. check that <table> now holds as many rows as the temp table did, then DROP
    the temp table
 
+The suffix goes on the table's own name, so the temp table is always in the
+same schema -- and catalog -- as your table: deleting from schema.items builds
+schema.items__sequel_delete_emulate there. Before 2026-10-02 the name was
+assembled by stripping the quoting out of the literalized target, which
+collapsed `schema`.`items` into the single identifier
+"schema.items__sequel_delete_emulate", and Spark rejects that outright ("not a
+valid name for tables/databases. Valid names only contain alphabet characters,
+numbers and _"). So an emulated DELETE or UPDATE against a schema-qualified
+dataset used to fail at step 1, without touching your table. If you are
+upgrading past that there is nothing to clean up: the temp table could never be
+created, so there is none to find.
+
 This is not a transaction, and this adapter has none to offer you:
 Database#transaction just yields. The adapter's own source says this path is
 "designed to minimize the changes to the tests, and is not recommended for
@@ -28,11 +40,19 @@ practice, so that you can decide rather than discover.
   left the table GONE.)
 
 * The rows the operation intends to keep exist under
-  <table>__sequel_delete_emulate from step 1 until step 3. If the process dies
-  before step 3, or if the row-count check in step 3 disagrees, that table is
-  left in place on purpose -- it is the recovery copy, and it is the only name
-  your data may be sitting under. Nothing in your own source will name it, so
-  if an emulated delete or update died, look there first.
+  <table>__sequel_delete_emulate, in your table's own schema, from step 1 until
+  step 3. If the process dies before step 3, or if the row-count check in step
+  3 disagrees, that table is left in place on purpose -- it is the recovery
+  copy, and it is the only name your data may be sitting under. Nothing in your
+  own source will name it, so if an emulated delete or update died, look there
+  first.
+
+* That name is derived from your table's name and nothing else. It carries no
+  timestamp, process id or random suffix, and that is deliberate: the deaths
+  recovery exists for -- a SIGKILL, a lost connection -- raise nothing, so a
+  generated name would appear in no error, in no log, and nowhere in your
+  source, and the rows would be unfindable by anyone who had not been watching.
+  What that choice costs is the concurrency limitation below.
 
 * Step 3 does not drop the temp table on the strength of step 2 merely
   returning. Until the row count has been checked, the temp table is treated as
@@ -61,9 +81,11 @@ practice, so that you can decide rather than discover.
   update on the same table fail. That means re-running a delete or update that
   died DESTROYS the recovery copy. Recover your data first, then re-run.
 
-* Concurrency. The temp table name is derived from the target table name, so
-  two emulated deletes or updates against the same table at the same time will
-  fight over it. Serialize them.
+* Concurrency. The temp table name is derived from the target table name and is
+  not made unique per operation, so two emulated deletes or updates against the
+  same table at the same time will fight over it. Serialize them. This is not
+  fixed, and it is not going to be: a unique name is what would fix it, and the
+  recovery guarantee above is why that is not on offer.
 
 If any of that is unacceptable for your workload, do not use emulated DELETE or
 UPDATE -- build the replacement table yourself, under a name you control, and
