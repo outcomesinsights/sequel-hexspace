@@ -1,0 +1,25 @@
+# Revisions that changed formatting only, and that `git blame` should look
+# through rather than at. A commit belongs here when it rewrote many lines
+# without changing what any of them do -- a whole-tree linter autocorrect, a
+# formatter adoption -- so that blame keeps pointing at whoever last changed
+# the MEANING of a line instead of at the sweep that reindented it.
+#
+# This file does nothing on its own. Git only consults it when told to, so each
+# clone opts in once, locally:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub reads it automatically for blame views in the web UI; `git blame` on
+# the command line does not until you run that config line. A stale or
+# mistyped SHA makes blame fail outright ("no such commit"), so only add SHAs
+# that exist on main, and only after the commit has actually landed.
+#
+# Entries are newest last. Keep the comment above each one.
+
+# style: apply the omakase autocorrect sweep
+# 5,530 of 5,544 rubocop offenses corrected in one pass on adopting
+# rubocop-rails-omakase -- double quotes through lib/ and test/, spaces inside
+# array and hash literal brackets, `{ |x| ... }` block braces, 1.9 hash syntax,
+# `%w[]` delimiters. 18 files, ~1,300 lines, zero behaviour change (the full
+# 292-run suite passed unchanged immediately afterwards).
+3a3206814752b9a3ee95d2498ff4f86098f46682
