@@ -1,10 +1,28 @@
 version: 2
+
+# cooldown (both entries below): Dependabot will not open a PR for a release
+# until it is at least default-days old, so a version that is yanked or
+# hotfixed inside its first week never reaches a PR at all. It says nothing
+# about a release that was already established when the bump was proposed.
+#
+# The reason it is worth having here specifically: this repo auto-merges
+# Dependabot PRs (dependabot-auto-merge.yml) without push CI, which is an
+# accepted risk — the cooldown narrows what gets auto-merged to releases that
+# have survived a week unretracted.
+#
+# Interaction with the monthly schedule, so a late bump is not misread as
+# Dependabot being broken: a release younger than 7 days when Dependabot
+# checks is skipped for that month and picked up at the NEXT monthly check.
+# The worst-case delay is therefore roughly five weeks, not seven days. That
+# is expected behaviour, not a defect.
 updates:
   - package-ecosystem: bundler
     directory: "/"
     schedule:
       interval: monthly
     open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
@@ -13,6 +31,8 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
     groups:
       actions:
         update-types: ["minor", "patch", "major"]
