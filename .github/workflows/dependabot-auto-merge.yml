@@ -78,23 +78,26 @@ jobs:
       # updated dependency and returns the first hit in the order [major, minor,
       # patch]. A group containing a major reports semver-major.
       #
-      # THE `== ''` CLAUSE IS DEAD CODE AND ITS STATED REASON IS FALSE. d4e29b8
-      # added it as "the update-type is empty for git ref (SHA) bumps", but at
-      # d4e29b8^ not one action here was SHA-pinned (all `@v1`/`@v5`/`@v6`/`@v7`)
-      # so no such bump existed to observe -- and a SHA-ref bump carries a real
-      # update-type anyway, because Dependabot resolves the pin to its release
-      # tag (sigstore/cosign PR #5106, a SHA-pinned actions/setup-go major, emits
-      # `update-type: version-update:semver-major`). The timing points at PR #13,
-      # a grouped major the gate refused CORRECTLY and a human then merged 16
-      # minutes before d4e29b8 was authored. The clause has never fired in 38
-      # PRs. Deleting it is recommended and needs a ruling -- do not do it in
-      # passing, and do not re-justify it with the SHA-bump story.
+      # THERE IS NO EMPTY-STRING ESCAPE HATCH ANY MORE, and do not re-add one.
+      # d4e29b8 had appended `|| steps.metadata.outputs.update-type == ''` to
+      # both conditions as "the update-type is empty for git ref (SHA) bumps".
+      # That reason was false twice over: at d4e29b8^ not one action here was
+      # SHA-pinned (all `@v1`/`@v5`/`@v6`/`@v7`) so no such bump existed to
+      # observe -- and a SHA-ref bump carries a real update-type anyway, because
+      # Dependabot resolves the pin to its release tag (sigstore/cosign PR
+      # #5106, a SHA-pinned actions/setup-go major, emits
+      # `update-type: version-update:semver-major`). The timing points at PR
+      # #13, a grouped major the gate refused CORRECTLY and a human then merged
+      # 16 minutes before d4e29b8 was authored. The clause never fired across
+      # all 38 Dependabot PRs. Ryan ruled it deleted (bead 9ga, 2026-10-02), so
+      # an update nobody can classify now waits for a human -- the same safe
+      # failure every major already gets. Do not re-justify it with the
+      # SHA-bump story.
       #
-      # maxSemver IGNORES an unclassifiable entry rather than failing closed, so
-      # a group pairing an unclassifiable dependency with a classified patch
-      # reports `patch` and is admitted by the ALLOWLIST, not by the clause
-      # above. Deleting the clause would not close that. Nothing observed does
-      # it.
+      # STILL OPEN, and deleting that clause did NOT close it: maxSemver
+      # IGNORES an unclassifiable entry rather than failing closed, so a group
+      # pairing an unclassifiable dependency with a classified patch reports
+      # `patch` and is admitted by the ALLOWLIST. Nothing observed does it.
       #
       # Keep this condition IDENTICAL to the one on `Enable auto-merge` below.
       # Approving on terms the merge step does not share leaves an approved PR
@@ -108,7 +111,6 @@ jobs:
         if: >-
           contains(fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'),
           steps.metadata.outputs.update-type)
-          || steps.metadata.outputs.update-type == ''
         run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -121,7 +123,6 @@ jobs:
         if: >-
           contains(fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'),
           steps.metadata.outputs.update-type)
-          || steps.metadata.outputs.update-type == ''
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

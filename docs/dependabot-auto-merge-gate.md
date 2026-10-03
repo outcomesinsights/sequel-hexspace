@@ -15,17 +15,19 @@ Both gated steps — `Approve PR` and `Enable auto-merge` — carry the identica
 if: >-
   contains(fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'),
   steps.metadata.outputs.update-type)
-  || steps.metadata.outputs.update-type == ''
 ```
 
-An allowlist of patch and minor, plus an escape hatch for the empty string.
+An allowlist of patch and minor, and nothing else. Until 2026-10-02 it also carried
+`|| steps.metadata.outputs.update-type == ''`, an escape hatch admitting the empty string; Ryan
+ruled that clause deleted. The **Decisions** section below records the ruling and the
+archaeology behind it.
 
 ## The question that mattered: what does `update-type` report for a GROUP?
 
 Every github-actions update here arrives as a group PR (`.github/dependabot.yml` groups them, and
 the group's `update-types` includes `major`). If a group PR reported no single update-type, the
-empty-string hatch would admit a grouped major with no human — and because `GITHUB_TOKEN`-driven
-merges trigger no workflows, with no CI either. That was the worry.
+empty-string hatch the gate carried at the time would admit a grouped major with no human — and
+because `GITHUB_TOKEN`-driven merges trigger no workflows, with no CI either. That was the worry.
 
 It is not what happens. `dependabot/fetch-metadata` at the pinned
 `25dd0e34f4fe68f24cc83900b1fe3fe149efef98` (v3.1.0) sets the output from `maxSemver()` in
@@ -43,13 +45,14 @@ return UPDATE_TYPES_PRIORITY.find(semverLevel => semverLevels.has(semverLevel)) 
 
 It reduces over **every** updated dependency in the PR and returns the first hit in priority
 order. Major is first. So a group containing a major reports `version-update:semver-major`, the
-allowlist misses, the hatch does not fire because the string is not empty, and both steps are
-skipped. The README at that SHA says the same thing in prose — "the highest semver change being
-made by this PR" — and `maxSemver` is what implements it.
+allowlist misses, and both steps are skipped. That was already the answer before the hatch was
+removed — the string is not empty, so the hatch never fired on this path either. The README at that
+SHA says the same thing in prose — "the highest semver change being made by this PR" — and
+`maxSemver` is what implements it.
 
 `maxSemver` returns `null` when none of the three values is present, and `@actions/core`'s
-`toCommandValue` renders `null` as `''`. So the escape hatch means exactly: *no dependency in this
-PR had a classifiable semver update type.*
+`toCommandValue` renders `null` as `''`. So an empty `update-type` means exactly: *no dependency in
+this PR had a classifiable semver update type.* That is now refused and waits for a human.
 
 ## The measurement: 38 real Dependabot PRs
 
@@ -96,12 +99,15 @@ What the step skipping on 2026-03-06 almost certainly was: PR #13, a grouped **m
 `01:44:20Z` and `d4e29b8` was authored 16 minutes later at `02:00:38Z`. A correctly-refused major
 was diagnosed as an empty update-type from a bump shape the repo did not contain.
 
-So the escape hatch is dead code resting on a false rationale. It has never fired in 38 PRs.
+So the escape hatch was dead code resting on a false rationale, and it never fired in 38 PRs.
+That — not the SHA-bump story, and not any observation of an empty `update-type` — is the recorded
+reason it was removed. Keep this section: delete it and the removal has no reason on the record.
 
 ## Decisions
 
-**The gate stays as written.** Majors already require a human and that is demonstrated, not
-inferred. There is nothing to fix.
+**Nothing about majors needed fixing.** They already require a human and that is demonstrated,
+not inferred — the allowlist, the bot check, the trigger, the permissions and the SHA pin all stand
+as they were.
 
 **`major` stays in the github-actions group's `update-types`.** A grouped major does not defeat
 the per-PR gate — `maxSemver` surfaces it — so keeping `major` means Dependabot proposes major
@@ -109,25 +115,35 @@ action bumps and a human rules on each one, which is the behaviour we want. Remo
 mean they are never proposed at all and the pins quietly rot at whatever major they are on. That
 is strictly worse: an unexamined-but-visible PR beats an invisible non-update.
 
-**The `|| ... == ''` clause is left in place, and that is a deferred call, not an endorsement.**
-The case for deleting it is good — it is dead, its justification is false, and it is the one path
-by which an update nobody can classify would auto-merge without CI. The case for leaving it is
-narrower: removing it is a behaviour change to this repo's most privileged workflow, justified by
-"no shape producing an empty update-type was found" rather than by "no such shape exists", and
-only bundler and github-actions are in play today. If a future ecosystem (a Docker digest, a git
-submodule, an action pinned to a SHA with no semver tags) ever does report empty, the clause
-auto-merges it unexamined, whereas deleting the clause makes it wait for a human — the same safe
-failure every major already gets. **Recommend deleting it; it needs a ruling, not an agent.**
+**The `|| ... == ''` clause is REMOVED.** Bead `9zp` recommended deleting it and left the call to
+a human, because it changes this repo's most privileged workflow; Ryan ruled on 2026-10-02 that it
+goes, and bead `9ga` removed it from both conditions. The case for deleting was that it is dead
+code, its stated justification is false on two independent counts, and it was the one path by
+which an update nobody can classify would auto-merge with no human and no CI.
 
-## The sharp edge nobody had noticed
+The case for leaving it did not survive. It rested on the removal being justified by "no shape
+producing an empty update-type was found" rather than by "no such shape exists" — but that
+uncertainty cuts the *other* way. If a future ecosystem (a Docker digest, a git submodule, an
+action pinned to a SHA with no semver tags) ever does report empty, the clause would have
+auto-merged it unexamined, whereas with the clause gone it waits for a human: the same safe failure
+every major already gets. An unclassifiable update is exactly the case least suited to an
+unexamined merge.
+
+Do not re-add it, and do not re-justify it with the SHA-bump story.
+
+## The sharp edge nobody had noticed — still open
 
 `maxSemver` takes the max of the three *known* values. An entry whose update type is `''` is not
 in the priority table, so it is dropped from the set rather than failing closed.
 
 A group pairing an **unclassifiable** dependency with a classified **patch** therefore reports
-`patch`, and is admitted — by the **allowlist**, not by the escape hatch. Deleting the escape
-hatch would not close this. No observed PR exhibits it, and it cannot be exercised from the real
-corpus, so the probe covers it with a synthetic input. It is recorded here so the next person does
+`patch`, and is admitted — by the **allowlist**, not by the escape hatch. **Removing the escape
+hatch did not close this and was never going to**, because the hatch was never on this path: the
+reported value is `patch`, not the empty string. This remains open.
+
+No observed PR exhibits it, and it cannot be exercised from the real corpus, so the probe covers it
+with a synthetic input — asserting that this case is *still admitted*, right beside the
+lone-unclassifiable case that the removal did change. It is recorded here so the next person does
 not have to rediscover it from the TypeScript.
 
 ## What is still not proven
@@ -139,8 +155,10 @@ not have to rediscover it from the TypeScript.
 - That GitHub's expression evaluator agrees with the probe's. The probe's is case-sensitive and
   GitHub's is not; harmless here because fetch-metadata emits these strings from a literal table,
   but a real divergence. See the note the probe prints.
-- Anything about the `== ''` branch in production. It has never fired, so its behaviour on GitHub
-  is untested by construction.
+- That an empty `update-type` is reachable at all. No PR in 38 ever reported one, so the branch
+  that used to admit it never fired in production and the refusal that replaced it is equally
+  unexercised. The removal rests on the clause being dead and falsely motivated, not on having
+  observed the shape it claimed to guard.
 
 ## Load-bearing, do not undo
 
@@ -155,5 +173,8 @@ someone reads before editing the workflow.
   a block that is too narrow to function.
 - The SHA pin on `dependabot/fetch-metadata`, and the 7-day `cooldown` in `dependabot.yml`
   (bead `xdg`).
+- No empty-string escape hatch on the update-type gate — ruled out deliberately (bead `9ga`).
+  Re-adding it would silently restore an unexamined auto-merge path for the one update type nobody
+  can classify.
 - This workflow auto-merges **without push CI**, which is an accepted risk on the record — a
   release tags its own version-bump commit, and that commit does get push CI. Do not "fix" it.
