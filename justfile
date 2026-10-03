@@ -1,8 +1,43 @@
 # Run the full CI suite (lint + tests)
 test: lint _test
 
+# Three tools, fail-fast in this order. What each one is here for, and what it is
+# NOT here for:
+#
+#   rubocop  -- the cop set is omakase plus the whole Lint department; see
+#               .rubocop.yml. `fmt` already autocorrected everything correctable,
+#               so what reaches here is what a human has to decide about.
+#   zizmor   -- GitHub Actions security audits, run on the repo ROOT and not on
+#               .github/workflows/, because the root is what also reaches
+#               .github/dependabot.yml (confirmed in its own output: it names
+#               dependabot.yml among the files it completed).
+#   cog      -- conventional-commit subjects for everything since the last v* tag.
+#
+# zizmor IS NOT A PERMISSIONS GATE and must not be read as one. It was probed at
+# 1.30.1 against the exact under-scoped-`permissions` defect this repo cares about
+# and its output is IDENTICAL on the broken and the fixed shape, so no exit code
+# derived from it tells them apart -- the full matrix is in
+# docs/workflow-permissions.md and `hygiene` says the same thing at more length.
+# It is adopted here for its OTHER audits (artipacked, cache-poisoning,
+# adhoc-packages, template-injection and the rest), which are real and which
+# nothing else here covers. The permissions gap stays open and stays declared.
+#
+# `--offline` so a lint run makes no network call, and `--config` passed
+# EXPLICITLY rather than left to discovery: zizmor resolves a discovered config
+# against the git COMMON dir, so from one of this repo's worktrees discovery reads
+# the MAIN checkout's file and silently ignores the one on the branch being linted.
+#
+# cog needs cog.toml's `tag_prefix = "v"` to find a baseline at all. Measured here
+# 2026-10-02: with the file, "No errored commits" over a real 31-commit range and
+# rc 0; with the file moved aside, `Error: unable to get any tag` and rc 1 -- which
+# is the dangerous direction, because piped through tee or tail that error reads as
+# a pass. Do not narrow the range to make cog quiet; it is green on this history.
+#
+# Report what a formatter cannot fix: cops, workflow audits, commit subjects.
 lint:
     bundle exec rubocop
+    zizmor --offline --config .github/zizmor.yml .
+    cog check --from-latest-tag --ignore-merge-commits
 
 # The suite runs under TZ=UTC to match CI's environment, and it matters: Spark's
 # session timezone is Etc/UTC, so on a host west of UTC the server is already on
@@ -23,20 +58,32 @@ ci: fmt-check test hygiene
 bundle-update *ARGS:
     bundle update {{ ARGS }}
 
+# One treefmt.toml now drives every formatter (gator-1sz), replacing the three
+# hand-written lines that used to live here -- rubocop -a, `just --fmt`, and
+# mdformat over `git ls-files "*.md"`. treefmt.toml records which formatter blocks
+# are present, which are deliberately absent, and the one place coverage narrows
+# on purpose.
+#
 # Rewrite files to canonical format. Run deliberately; never from a hook.
 fmt:
-    bundle exec rubocop -a
-    just --fmt --unstable
-    git ls-files "*.md" | xargs -r mdformat
+    treefmt
 
-# A formatter that rewrites files mid-commit changes what you already reviewed,
-# so the hooks run this instead of `fmt`.
+# SEMANTICS CHANGED ON 2026-10-02, and the change is deliberate. This recipe used
+# to be strictly read-only, on the argument that a formatter rewriting files
+# mid-commit changes what you already reviewed. `treefmt --fail-on-change` does
+# not work that way: it FORMATS THE TREE AND THEN EXITS 1 (measured, treefmt
+# 2.6.0). That is formatter-hook semantics -- the fix is applied, the gate fails,
+# the author re-stages and commits again -- and it is what gator-1sz ruled, having
+# considered exactly this objection. The thing the standard forbids is a hook that
+# rewrites and SUCCEEDS silently, which is a different and worse shape: nobody
+# reviews what they cannot see failed.
 #
-# Report format drift without changing anything.
+# The practical consequence to know: a failing `pre-commit` has already modified
+# your working tree. `git diff` after a red commit shows what it did.
+#
+# Apply canonical format and fail if anything was out of shape.
 fmt-check:
-    bundle exec rubocop
-    just --fmt --check --unstable
-    git ls-files "*.md" | xargs -r mdformat --check
+    treefmt --fail-on-change
 
 # Defaults to the complete `ci`; point it at something smaller ONLY where
 # running complete CI locally is impractical.
@@ -47,8 +94,28 @@ pre-push: ci
 # Must stay FAST — a sub-minute budget, since it runs on every commit. Tests
 # belong here when they fit; lint alone when they do not.
 #
+# `seeds-check` is here and NOT in `ci`/`pre-push`: a commit is the only way a
+# seed file reaches history, so gating the commit path covers every route in, and
+# `ci` is the local stand-in for a CI job on a runner that has no seeds installed.
+#
 # What runs before every commit.
-pre-commit: fmt-check lint hygiene
+pre-commit: fmt-check lint hygiene seeds-check
+
+# Not format validity -- content plausibility, plus the `--against-git` tier that
+# compares the committed corpus against the working tree. Two things it catches
+# that nothing else here does: a bulk sweep rewriting most of the corpus in one
+# field, and the single seed whose body moved while its `updated_at` did not,
+# which is the signature of a formatter or linter reaching into the store. That
+# second one is why treefmt.toml excludes `.seeds/**` -- this recipe and that
+# exclusion are two halves of one decision.
+#
+# Skips when seeds is absent, which is a deliberate hole: this is a deliberation
+# store, not shipped code, and a clone without the tool must still be able to
+# commit. Nothing else on the commit path is allowed to skip this way.
+#
+# Verify the seeds store is plausible and has not been rewritten underneath us.
+seeds-check:
+    @command -v seeds >/dev/null 2>&1 || exit 0; seeds check --against-git
 
 # Inherited from overcommit when it was removed on 2026-09-12: MergeConflicts,
 # YamlSyntax, JsonSyntax. Its RuboCop and test targets were already covered by
@@ -92,13 +159,28 @@ hygiene:
     # the repo root with no arguments it finds .github/workflows itself, so a
     # new workflow file is covered the day it lands.
     #
-    # Invoked through `mise x` rather than the bare `actionlint` on PATH: that
-    # is a mise shim with no version set, and it dies with "No version is set
-    # for shim: actionlint" rather than linting anything. The version is pinned
-    # so a new actionlint release cannot turn this gate red on workflows nobody
-    # touched -- bump it deliberately. If mise or actionlint is missing this
-    # fails loudly; it must never skip quietly, which is how a gate goes
-    # toothless without anyone noticing.
+    # Called BARE, as of 2026-10-02. It used to need `mise x actionlint@1.7.12
+    # -- actionlint`, because the only actionlint on PATH was a GLOBAL mise shim
+    # with no version set: `command -v actionlint` succeeded and running it died
+    # with "No version is set for shim: actionlint". The repo-local mise.toml
+    # fixes that at the root -- it pins actionlint for this tree, so the shim
+    # resolves. Demonstrated here before this line was changed, including from
+    # an explicitly UNTRUSTED checkout, since a `[tools]`-only mise.toml loads
+    # without `mise trust`.
+    #
+    # The pin is MAJOR-only now (`actionlint = "1"`), not the exact 1.7.12 this
+    # line used to carry. A new minor can therefore turn this gate red on
+    # workflows nobody touched, which is the standard's deliberate trade: a new
+    # rule arrives with the bump and goes red where it lands, rather than being
+    # invisible until someone bumps a pin by hand. `mise outdated` shows what
+    # moved.
+    #
+    # actionlint's own shellcheck pass over every `run:` block is only real
+    # while mise.toml pins shellcheck: actionlint SKIPS it silently when the
+    # binary is absent. That line is in mise.toml with this comment on it.
+    #
+    # If mise or actionlint is missing this fails loudly; it must never skip
+    # quietly, which is how a gate goes toothless without anyone noticing.
     #
     # Cost is 0.07s against this recipe's 0.54s, which is why it sits in
     # hygiene -- running at commit stage as well as pre-push -- instead of
@@ -110,13 +192,16 @@ hygiene:
     # `actions/checkout` step lints clean -- and so does the release.yml defect
     # described above. That class of defect is still ungated here, deliberately.
     #
-    # DO NOT REACH FOR zizmor TO CLOSE IT -- it was probed, 1.30.1, and it
-    # cannot. Its output on the defect shape is IDENTICAL to its output on the
-    # fixed shape at every persona, so no exit code derived from it discriminates
-    # the two; and the only shape it flags for permissions at its default persona
-    # is a job with NO block, which is correct code. It models permissions as a
-    # security surface (too BROAD is a finding) and has no model of "too narrow
-    # to function" either. Config can suppress its rules, not add one.
+    # DO NOT REACH FOR zizmor TO CLOSE IT. zizmor IS now part of `lint`, as of
+    # 2026-10-02, and that does not change this gap by one inch -- it was
+    # adopted for its other audits. It was probed at 1.30.1 against this exact
+    # defect: its output on the defect shape is IDENTICAL to its output on the
+    # fixed shape at every persona, so no exit code derived from it
+    # discriminates the two; and the only shape it flags for permissions at its
+    # default persona is a job with NO block, which is correct code. It models
+    # permissions as a security surface (too BROAD is a finding) and has no
+    # model of "too narrow to function" either. Config can suppress its rules,
+    # not add one.
     #
     # The accepted gap, the full probe matrix, and the fail-closed argument for
     # accepting it are in docs/workflow-permissions.md, which is also where
@@ -124,6 +209,6 @@ hygiene:
     # checkout-only rule was rejected on purpose: right about one action, silent
     # about every other, and it would make this gate LOOK like it covered the
     # class. Re-probe with ./docs/permissions-gate-probe.sh.
-    mise x actionlint@1.7.12 -- actionlint -no-color -oneline || rc=1
+    actionlint -no-color -oneline || rc=1
 
     exit $rc

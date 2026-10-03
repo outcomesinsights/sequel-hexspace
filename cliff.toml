@@ -126,58 +126,58 @@ sort_commits = "newest"
 
 # First match wins.
 commit_parsers = [
-    # Not part of the shipped gem: no changelog entry, no release. `^chore` is
-    # what covers Dependabot's `chore(deps):` and `chore(deps-dev):`, and so what
-    # keeps a deps-only range from producing a version. Keep it skipped -- but know
-    # that it is the one skip with a live hole in it: a Dependabot group bump can
-    # also widen a RUNTIME requirement (07b9b82 did, `thrift < 0.24` -> `< 0.25`),
-    # and no rule here can tell that apart from a dev-dep bump. That case is
-    # covered by the gemspec diff in docs/release-setup.md, not by this file.
-    { message = "^chore", skip = true },
-    { message = "^ci", skip = true },
-    { message = "^test", skip = true },
-    { message = "^style", skip = true },
-    { message = "^docs", skip = true },
-    { message = "^bd:", skip = true },
+  # Not part of the shipped gem: no changelog entry, no release. `^chore` is
+  # what covers Dependabot's `chore(deps):` and `chore(deps-dev):`, and so what
+  # keeps a deps-only range from producing a version. Keep it skipped -- but know
+  # that it is the one skip with a live hole in it: a Dependabot group bump can
+  # also widen a RUNTIME requirement (07b9b82 did, `thrift < 0.24` -> `< 0.25`),
+  # and no rule here can tell that apart from a dev-dep bump. That case is
+  # covered by the gemspec diff in docs/release-setup.md, not by this file.
+  { message = "^chore", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^test", skip = true },
+  { message = "^style", skip = true },
+  { message = "^docs", skip = true },
+  { message = "^bd:", skip = true },
 
-    # NOT skipped, unlike the tooling types above, and the reason is the trap this
-    # rule exists to defuse: `build:` is the honest conventional type for a change
-    # to a declared gem dependency, so picking the type CORRECTLY is what used to
-    # lose the change. 94f85c8 added a runtime ceiling (`hexspace < 0.4`) under
-    # `build(deps)` precisely rather than gaming it to `fix:` to clear the filter,
-    # and the draft then said nothing about it. A rule of "remember to write
-    # `fix:`" trades a true commit message for a visible changelog and will be got
-    # wrong by whoever is in a hurry, so the config absorbs the cost instead.
-    #
-    # Grouped under "Changed" rather than a "Dependencies" heading of its own
-    # because the headings here match CHANGELOG.md's existing four on purpose (see
-    # the note above); a fifth would not paste in as part of the same file.
-    #
-    # Cost, measured rather than assumed: `^build` appears exactly ONCE in the
-    # whole history (94f85c8, 2026-10-02) and that one occurrence is
-    # consumer-visible, so the draft noise this admits is currently zero. It is
-    # the same bargain the `^fix` note below spells out -- an internal `build:`
-    # will draft an entry and justify a patch bump, and the human editing the
-    # draft deletes it. Dependabot is unaffected: it writes `chore(deps)`, which
-    # is still skipped, so a deps-only range still yields no version.
-    { message = "^build", group = "Changed" },
+  # NOT skipped, unlike the tooling types above, and the reason is the trap this
+  # rule exists to defuse: `build:` is the honest conventional type for a change
+  # to a declared gem dependency, so picking the type CORRECTLY is what used to
+  # lose the change. 94f85c8 added a runtime ceiling (`hexspace < 0.4`) under
+  # `build(deps)` precisely rather than gaming it to `fix:` to clear the filter,
+  # and the draft then said nothing about it. A rule of "remember to write
+  # `fix:`" trades a true commit message for a visible changelog and will be got
+  # wrong by whoever is in a hurry, so the config absorbs the cost instead.
+  #
+  # Grouped under "Changed" rather than a "Dependencies" heading of its own
+  # because the headings here match CHANGELOG.md's existing four on purpose (see
+  # the note above); a fifth would not paste in as part of the same file.
+  #
+  # Cost, measured rather than assumed: `^build` appears exactly ONCE in the
+  # whole history (94f85c8, 2026-10-02) and that one occurrence is
+  # consumer-visible, so the draft noise this admits is currently zero. It is
+  # the same bargain the `^fix` note below spells out -- an internal `build:`
+  # will draft an entry and justify a patch bump, and the human editing the
+  # draft deletes it. Dependabot is unaffected: it writes `chore(deps)`, which
+  # is still skipped, so a deps-only range still yields no version.
+  { message = "^build", group = "Changed" },
 
-    { message = "^feat", group = "Added" },
-    # Known over-inclusion, left as-is on purpose: this history has `fix(just)`,
-    # `fix(ci)`, `fix(hooks)` and `fix(lint)` commits that touch nothing shipped,
-    # and each of them will draft an entry and justify a patch bump. The
-    # alternative -- an allowlist of non-shipping scopes -- goes stale silently and
-    # fails the dangerous way, swallowing a real adapter fix. An extra patch
-    # release is cheap; a missing one is not. This is one of the things the human
-    # editing the draft is there to delete.
-    { message = "^fix", group = "Fixed" },
-    { message = "^perf", group = "Changed" },
-    { message = "^refactor", group = "Changed" },
-    { message = "^revert", group = "Changed" },
+  { message = "^feat", group = "Added" },
+  # Known over-inclusion, left as-is on purpose: this history has `fix(just)`,
+  # `fix(ci)`, `fix(hooks)` and `fix(lint)` commits that touch nothing shipped,
+  # and each of them will draft an entry and justify a patch bump. The
+  # alternative -- an allowlist of non-shipping scopes -- goes stale silently and
+  # fails the dangerous way, swallowing a real adapter fix. An extra patch
+  # release is cheap; a missing one is not. This is one of the things the human
+  # editing the draft is there to delete.
+  { message = "^fix", group = "Fixed" },
+  { message = "^perf", group = "Changed" },
+  { message = "^refactor", group = "Changed" },
+  { message = "^revert", group = "Changed" },
 
-    # Deliberately not a silent skip: a conventional type nobody has classified
-    # renders under its own heading rather than vanishing from the release.
-    { message = ".*", group = "Uncategorized" },
+  # Deliberately not a silent skip: a conventional type nobody has classified
+  # renders under its own heading rather than vanishing from the release.
+  { message = ".*", group = "Uncategorized" },
 ]
 
 # ORDINARY SemVer, because sequel-hexspace is past 1.0.0 -- 2.0.0 is published. A

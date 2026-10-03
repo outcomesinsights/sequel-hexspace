@@ -78,9 +78,9 @@ AllCops:
   # and not whenever Dependabot happens to fire. Decided 2026-09-12.
   NewCops: disable
   Exclude:
-    - 'vendor/**/*'
-    - 'bin/**/*'
-    - 'tmp/**/*'
+    - "vendor/**/*"
+    - "bin/**/*"
+    - "tmp/**/*"
     # Scratch space for diagnostics, captured test output and throwaway debug
     # scripts. It is gitignored globally on this host, which is exactly why its
     # absence here was invisible: git never shows the files, and rubocop does
@@ -88,7 +88,7 @@ AllCops:
     # 9-line scratch script that nobody intended to ship. Anchored to the
     # directory name -- 'claude_stuff*' would also swallow a real file or
     # directory that merely starts with the same characters.
-    - 'claude_stuff/**/*'
+    - "claude_stuff/**/*"
 
 # Keeps the Exclude list above ADDITIVE to omakase's own ('data/**/*') instead
 # of replacing it.
