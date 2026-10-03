@@ -182,7 +182,12 @@ describes. Checked against the file as it stands:
   `identical` against `main`, asked of git history rather than of CI); and a successful `ci.yml`
   run exists for exactly this `head_sha` under `event=push&branch=main`, with the *latest*
   matching run deciding. It fails closed — an in-progress run reports its status and no run at all
-  reports `missing`, neither of which is `success`.
+  reports `missing`, neither of which is `success`. What `success` on a `ci.yml` run *means* is
+  decided by ci.yml's own aggregate `ci` job, and this gate inherits whatever that one accepts, so
+  the two have to be read together: until `sequel-hexspace-mwd` that job was a blocklist testing
+  for `failure` and `cancelled` only, so a run whose `test` job had been SKIPPED recorded
+  conclusion `success` and would have satisfied this check. It is now a positive assertion that
+  every job in its `needs:` reported `success`; probe it with `./docs/ci-gate-probe.sh`.
 - `push` builds the gem, then installs it into an empty `GEM_HOME`/`GEM_PATH` from an empty
   directory and loads the adapter from there, asserting that `Sequel::Hexspace::Database` and
   `Sequel::Spark::DatabaseMethods` were defined under the installed gem's own `gem_dir` and that

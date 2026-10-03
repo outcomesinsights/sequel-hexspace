@@ -71,7 +71,8 @@ on:
     #     coverage it has. Note it does not match `README`, which has no
     #     extension; nor would that matter, since the only check that reads the
     #     gemspec's packaging allowlist lives in release.yml.
-    #   - NOT 'docs/**': docs/ holds permissions-gate-probe.sh, which is code.
+    #   - NOT 'docs/**': docs/ holds permissions-gate-probe.sh and
+    #     ci-gate-probe.sh, both of which are code.
     #     '**.md' already covers both of its markdown pages.
     #   - NOT '.claude/**' or 'claude_stuff/**': both are gitignored in this
     #     repo, so neither can appear in a commit here and both entries would
@@ -215,9 +216,10 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
 
-    # Genuinely nothing. The single step below is a shell script over
-    # `needs.*.result`, which the expression evaluator resolves from the run's
-    # own state before the step starts -- no checkout, no API call, no token.
+    # Genuinely nothing. The single step below is a shell script over the
+    # `needs` context, which the expression evaluator resolves from the run's
+    # own state before the step starts -- no checkout, no API call, no token,
+    # and jq is a local binary on the runner image.
     # This is the one job here that needs no scope at all, and saying so
     # explicitly is the point: it inherits `{}` from the workflow either way,
     # but a reader adding a step to this job should see that the block was a
@@ -225,14 +227,90 @@ jobs:
     permissions: {}
 
     steps:
+      # A POSITIVE ASSERTION -- every needed job's result must BE `success` --
+      # replacing the blocklist that used to live here. That blocklist tested for
+      # 'failure' and 'cancelled' and nothing else, so a SKIPPED needed job left
+      # this job printing "All CI jobs passed" and exiting 0. Why that mattered
+      # more than the code suggests: `main`'s branch protection requires exactly
+      # one status check context, `ci` (read from the live API 2026-10-02:
+      # required_status_checks.contexts == ["ci"]), and release.yml's `verify`
+      # job treats a successful ci.yml run at the tagged SHA as evidence that the
+      # commit was tested. Both of them read this job's conclusion and nothing
+      # else, so a green `ci` over a job that never ran satisfied the only gate
+      # on merging AND the gate on publishing.
+      #
+      # ALL FOUR values GitHub documents for a needed job's `result`, and what
+      # each one does here:
+      #
+      #   success    PASSES. The only value that does.
+      #   failure    fails. A job ran and reported a problem.
+      #   cancelled  fails. The run was cancelled -- by the `concurrency` group
+      #              above, by a person, or by a timeout -- so the suite did not
+      #              finish and nothing is known about the commit.
+      #   skipped    fails, and that is the change here. A job is skipped when
+      #              its own `if:` is false, when a job it `needs:` did not
+      #              succeed, or when its matrix expands to nothing. NEITHER
+      #              `lint` NOR `test` CAN BE SKIPPED TODAY -- neither has an
+      #              `if:`, neither has `needs:`, and the matrix is three literal
+      #              entries -- so this costs nothing now and closes the hole the
+      #              moment someone adds a condition to either. There is no
+      #              legitimate skip to accommodate: a push this workflow should
+      #              not test is handled by `paths-ignore` above, which produces
+      #              NO RUN AT ALL rather than a run with a skipped job inside
+      #              it, and release.yml refuses that correctly as "missing".
+      #
+      # Written positively ON PURPOSE, and not as a blocklist with 'skipped'
+      # added to the pair. A blocklist is right about the values its author
+      # thought of and silently wrong about every other one, which is exactly how
+      # the defect above was born; enumerating four values is no protection
+      # against a fifth that GitHub may document later, or against the empty
+      # string a context can yield when something about the run is unusual.
+      # `!= success` fails closed on anything unanticipated.
+      #
+      # The one fail-open mode a positive assertion has of its own is the EMPTY
+      # SET: "every needed job succeeded" is vacuously TRUE when there are no
+      # needed jobs. So the guarded set is asserted BY NAME first, and
+      # EXPECTED_JOBS has to be edited together with `needs:` above. Dropping a
+      # job from `needs:` and forgetting this list turns the gate red, which is
+      # the direction a mistake here has to fail.
+      #
+      # Re-probe with ./docs/ci-gate-probe.sh, which extracts the `run:` block
+      # below WITH A YAML PARSER and runs it over all four documented results
+      # plus the degenerate shapes. Its header says what that does and does not
+      # prove: the shell logic, yes; GitHub's own evaluation of `toJSON(needs)`,
+      # no -- this workflow has never run on GitHub from this tree.
       - name: Check CI status
+        env:
+          # Read through the environment rather than interpolated into the script
+          # body. These values are GitHub's own and are not attacker-shaped, but
+          # a `${{ }}` inside a `run:` block is a textual substitution into
+          # source code, and nothing else in this repo's workflows writes that
+          # shape. `toJSON(needs)` rather than `needs.*.result` because it
+          # carries the job NAMES, which both checks below report on.
+          #
+          # jq is preinstalled on GitHub's ubuntu-latest image. If it ever is
+          # not, `set -e` turns a missing jq into a failed gate rather than a
+          # passing one.
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          # Must list exactly the jobs named in `needs:` above.
+          EXPECTED_JOBS: '["lint", "test"]'
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
-            echo "One or more CI jobs failed"
+          set -euo pipefail
+
+          echo "Needed jobs and their results:"
+          jq -r 'to_entries | sort_by(.key)[] | "  \(.key) = \(.value.result)"' <<<"$NEEDS_JSON"
+
+          guarded=$(jq -r 'keys | join(", ")' <<<"$NEEDS_JSON")
+          expected=$(jq -r 'sort | join(", ")' <<<"$EXPECTED_JOBS")
+          if [[ "$guarded" != "$expected" ]]; then
+            echo "::error::This gate is written to guard [$expected], but needs: resolved to [$guarded]. Branch protection requires only this job, so any job missing from needs: is gated by nothing. Update needs: and EXPECTED_JOBS together."
             exit 1
           fi
-          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "One or more CI jobs were cancelled"
+
+          not_green=$(jq -r 'to_entries | map(select(.value.result != "success")) | sort_by(.key) | map("\(.key)=\(.value.result)") | join(", ")' <<<"$NEEDS_JSON")
+          if [[ -n "$not_green" ]]; then
+            echo "::error::CI is not green: $not_green. Only 'success' passes this gate -- failure, cancelled and skipped all fail it."
             exit 1
           fi
+
           echo "All CI jobs passed"
