@@ -192,13 +192,16 @@ hygiene:
     # `actions/checkout` step lints clean -- and so does the release.yml defect
     # described above. That class of defect is still ungated here, deliberately.
     #
-    # DO NOT REACH FOR zizmor TO CLOSE IT -- it was probed, 1.30.1, and it
-    # cannot. Its output on the defect shape is IDENTICAL to its output on the
-    # fixed shape at every persona, so no exit code derived from it discriminates
-    # the two; and the only shape it flags for permissions at its default persona
-    # is a job with NO block, which is correct code. It models permissions as a
-    # security surface (too BROAD is a finding) and has no model of "too narrow
-    # to function" either. Config can suppress its rules, not add one.
+    # DO NOT REACH FOR zizmor TO CLOSE IT. zizmor IS now part of `lint`, as of
+    # 2026-10-02, and that does not change this gap by one inch -- it was
+    # adopted for its other audits. It was probed at 1.30.1 against this exact
+    # defect: its output on the defect shape is IDENTICAL to its output on the
+    # fixed shape at every persona, so no exit code derived from it
+    # discriminates the two; and the only shape it flags for permissions at its
+    # default persona is a job with NO block, which is correct code. It models
+    # permissions as a security surface (too BROAD is a finding) and has no
+    # model of "too narrow to function" either. Config can suppress its rules,
+    # not add one.
     #
     # The accepted gap, the full probe matrix, and the fail-closed argument for
     # accepting it are in docs/workflow-permissions.md, which is also where
