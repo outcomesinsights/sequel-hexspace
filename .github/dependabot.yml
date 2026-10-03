@@ -34,5 +34,20 @@ updates:
     cooldown:
       default-days: 7
     groups:
+      # `major` is here deliberately, and it does NOT defeat the auto-merge
+      # gate. dependabot-auto-merge.yml allows only patch and minor, and
+      # fetch-metadata reports a group's update-type as the MAX across every
+      # dependency in it -- so a group containing a major reports semver-major
+      # and waits for a human. Measured: the four grouped majors this repo has
+      # seen (#11 #13 #19 #26) were all merged by hand, never by the bot.
+      #
+      # So keeping `major` means a major action bump gets PROPOSED and ruled on.
+      # Dropping it would mean such a bump is never proposed and the pins
+      # silently rot at whatever major they sit on, which is worse: a visible
+      # PR awaiting review beats an invisible non-update.
+      #
+      # Note the bundler entry above is minor+patch only, so a major gem bump
+      # arrives as its own ungrouped PR -- also refused by the same gate.
+      # Rationale and evidence: docs/dependabot-auto-merge-gate.md.
       actions:
         update-types: ["minor", "patch", "major"]
