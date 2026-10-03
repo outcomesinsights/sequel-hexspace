@@ -194,7 +194,7 @@ jobs:
       # rather than consuming one across a boundary.
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
-          ruby-version: '4.0'
+          ruby-version: "4.0"
           bundler-cache: false
 
       - name: Build the gem
@@ -234,10 +234,16 @@ jobs:
       # The install is deliberate, and it IS the test: zizmor's adhoc-packages
       # rule flags installing a package at run time, which is exactly the point
       # of this step, so the finding is suppressed here rather than removed by
-      # contorting the install. The ignore has to sit on this `run:` line -- the
-      # same comment INSIDE the block is not honoured (measured, zizmor 1.30.1).
+      # contorting the install. The ignore has to sit on the block-scalar `|`
+      # line -- the same comment INSIDE the block is not honoured (measured,
+      # zizmor 1.30.1). prettier, now driving this file through treefmt, moves
+      # the `|` onto its own line and carries the comment with it; that still
+      # works, verified by deleting the comment and watching the adhoc-packages
+      # finding come back (rc 12), then restoring it. Do not "tidy" the comment
+      # back up next to `run:`, and do not move it below the `|`.
       - name: Check the built gem loads when installed, without the checkout
-        run: | # zizmor: ignore[adhoc-packages] - installing the built gem IS this smoke test
+        run:
+          | # zizmor: ignore[adhoc-packages] - installing the built gem IS this smoke test
           set -euo pipefail
           home=$(mktemp -d); empty=$(mktemp -d)
           GEM_HOME="$home" GEM_PATH="$home" gem install --no-document "sequel-hexspace-${VERSION}.gem"

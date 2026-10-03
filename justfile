@@ -23,20 +23,32 @@ ci: fmt-check test hygiene
 bundle-update *ARGS:
     bundle update {{ ARGS }}
 
+# One treefmt.toml now drives every formatter (gator-1sz), replacing the three
+# hand-written lines that used to live here -- rubocop -a, `just --fmt`, and
+# mdformat over `git ls-files "*.md"`. treefmt.toml records which formatter blocks
+# are present, which are deliberately absent, and the one place coverage narrows
+# on purpose.
+#
 # Rewrite files to canonical format. Run deliberately; never from a hook.
 fmt:
-    bundle exec rubocop -a
-    just --fmt --unstable
-    git ls-files "*.md" | xargs -r mdformat
+    treefmt
 
-# A formatter that rewrites files mid-commit changes what you already reviewed,
-# so the hooks run this instead of `fmt`.
+# SEMANTICS CHANGED ON 2026-10-02, and the change is deliberate. This recipe used
+# to be strictly read-only, on the argument that a formatter rewriting files
+# mid-commit changes what you already reviewed. `treefmt --fail-on-change` does
+# not work that way: it FORMATS THE TREE AND THEN EXITS 1 (measured, treefmt
+# 2.6.0). That is formatter-hook semantics -- the fix is applied, the gate fails,
+# the author re-stages and commits again -- and it is what gator-1sz ruled, having
+# considered exactly this objection. The thing the standard forbids is a hook that
+# rewrites and SUCCEEDS silently, which is a different and worse shape: nobody
+# reviews what they cannot see failed.
 #
-# Report format drift without changing anything.
+# The practical consequence to know: a failing `pre-commit` has already modified
+# your working tree. `git diff` after a red commit shows what it did.
+#
+# Apply canonical format and fail if anything was out of shape.
 fmt-check:
-    bundle exec rubocop
-    just --fmt --check --unstable
-    git ls-files "*.md" | xargs -r mdformat --check
+    treefmt --fail-on-change
 
 # Defaults to the complete `ci`; point it at something smaller ONLY where
 # running complete CI locally is impractical.

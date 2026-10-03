@@ -77,9 +77,9 @@ on:
     #     repo, so neither can appear in a commit here and both entries would
     #     be dead text that reads as coverage.
     paths-ignore:
-      - '.seeds/**'
-      - '.beads/**'
-      - '**.md'
+      - ".seeds/**"
+      - ".beads/**"
+      - "**.md"
   pull_request:
 
 concurrency:
@@ -128,7 +128,7 @@ jobs:
           persist-credentials: false
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
-          ruby-version: '4.0'
+          ruby-version: "4.0"
           bundler-cache: true
       - name: Run RuboCop
         run: bundle exec rubocop
@@ -138,7 +138,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ['3.3', '3.4', '4.0']
+        ruby: ["3.3", "3.4", "4.0"]
     name: Test Ruby ${{ matrix.ruby }}
 
     # `contents: read` is for the checkout, and again is the whole of it. Beyond

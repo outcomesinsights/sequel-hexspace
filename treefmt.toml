@@ -1,0 +1,106 @@
+# This repo's formatter blocks, assembled from gator's canonical treefmt.toml (seed
+# gator-rga, ruled 2026-10-02): the [global] table, then the [formatter.*] blocks for
+# the languages this tree actually contains, copied byte for byte. A repo carries FEWER
+# blocks, never different ones, and the options are not per repo -- the point of one
+# standard is that an agent moving between repos meets one rule.
+#
+# ABSENT ON PURPOSE, because treefmt refuses to start if ANY configured formatter's
+# binary is missing from PATH even when no file matches its globs (measured, treefmt
+# 2.6.0): [formatter.ruff-format] / [formatter.ruff-check] (no .py here),
+# [formatter.nixfmt] (no .nix) and [formatter.air] (no .R).
+#
+# `treefmt` is `just fmt`; `treefmt --fail-on-change` is `just fmt-check`.
+#
+# WHAT THIS REPLACED, and the one place coverage deliberately NARROWS. The old
+# hand-written recipes ran rubocop, `just --fmt`, and mdformat over `git ls-files
+# "*.md"`. That last glob is unanchored, so it also swept .beads/README.md and the four
+# .seeds/seeds/*.md files -- a formatter reaching into another tool's store. `seeds
+# check --against-git`, now on the commit path, exists to CATCH exactly that ("the
+# single seed whose body moved while its updated_at did not -- the signature of a
+# formatter or linter reaching into the store"), so the [global] excludes below are a
+# fix, not a regression. Nothing regresses today either: all ten tracked *.md files are
+# mdformat-clean as of this commit.
+#
+# Coverage otherwise WIDENS: prettier now formats the four .yml/.yaml files outside
+# those stores, taplo the .toml files and shfmt docs/permissions-gate-probe.sh, none of
+# which any recipe touched before.
+#
+# treefmt walks the git index, so a NEW file is unformatted and unchecked until it is
+# staged. Both gate recipes had that property already (they iterate `git ls-files`).
+
+[global]
+excludes = [
+  # generated or owned by another tool
+  "*.lock",
+  "uv.lock",
+  "Gemfile.lock",
+  "package-lock.json",
+  "yarn.lock",
+  "renv.lock",
+  "*.min.*",
+  # other tools' stores: their formatters are their own business
+  ".beads/**",
+  ".seeds/**",
+  "claude_stuff/**",
+  "node_modules/**",
+  "vendor/**",
+  ".claude/worktrees/**",
+]
+
+# --- Ruby: omakase + Lint via the repo's tracked .rubocop.yml (gator-rga.1). -----------
+# --fail-level F: autocorrect what can be corrected and leave what cannot to `lint`, which
+# is the recipe that reports. Without it, one uncorrectable offense fails `fmt`.
+[formatter.rubocop]
+command = "bundle"
+options = [
+  "exec",
+  "rubocop",
+  "--autocorrect",
+  "--fail-level",
+  "F",
+  "--format",
+  "quiet",
+]
+includes = ["*.rb", "*.rake", "*.gemspec", "Gemfile", "Rakefile"]
+
+# --- Shell: shfmt on its defaults (S1: tabs, no .editorconfig). ------------------------
+[formatter.shfmt]
+command = "shfmt"
+options = ["-w"]
+includes = ["*.sh", "*.bash"]
+
+# --- Markdown: mdformat with the repo's TRACKED .mdformat.toml (gfm + frontmatter, ------
+# number = true). Without that file mdformat inherits ~/.mdformat.toml under HOME and
+# nothing elsewhere; the doctor reports the missing file. Run through uvx so it needs no
+# pin: mdformat is a PyPI tool and its plugins must live in the same environment --
+# uvx builds and caches that (0.3s warm, measured). uv is the baseline every clone has.
+[formatter.mdformat]
+command = "uvx"
+options = [
+  "--from",
+  "mdformat",
+  "--with",
+  "mdformat-gfm",
+  "--with",
+  "mdformat-frontmatter",
+  "mdformat",
+]
+includes = ["*.md"]
+
+# --- justfile -----------------------------------------------------------------------------
+[formatter.just]
+command = "just"
+options = ["--fmt", "--unstable", "--justfile"]
+includes = ["justfile", "Justfile", "*.just"]
+
+# --- YAML and JSON: prettier on its defaults (D4). ----------------------------------------
+[formatter.prettier]
+command = "prettier"
+options = ["--write"]
+includes = ["*.yml", "*.yaml", "*.json"]
+
+# --- TOML: taplo on its defaults (D4). ----------------------------------------------------
+[formatter.taplo]
+command = "taplo"
+options = ["fmt"]
+includes = ["*.toml"]
