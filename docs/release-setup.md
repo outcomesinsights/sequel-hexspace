@@ -74,15 +74,46 @@ In order, because each step gates the next:
 4. Bump `s.version` in `sequel-hexspace.gemspec` to match the drafted version and land it, with
    the `CHANGELOG.md` edit, on `main`.
 5. Wait for `ci.yml` to pass on that exact commit. `release.yml`'s `verify` job requires a
-   successful CI run for the tagged SHA and fails closed, so a tag pushed in the same breath as
-   the commit will fail while CI is still running. That is intended; re-run the workflow once CI
-   finishes.
+   successful CI run — `event=push`, `branch=main`, this exact `head_sha` — and fails closed, so
+   a tag pushed in the same breath as the commit will fail while CI is still running. That is
+   intended; re-run the workflow once CI finishes. **Tag the version-bump commit itself, not
+   whatever `main`'s tip happens to be** — see below.
 6. `git tag vX.Y.Z && git push origin vX.Y.Z`. The tag must name the version the gemspec reads —
    `verify` asserts it, so a mismatch fails the release instead of publishing the wrong number.
 7. Confirm <https://rubygems.org/gems/sequel-hexspace> lists the new version.
 
 Being a gem owner on rubygems.org is not required for any of this. Anyone with write access to
 the repo can cut a release, which is the main thing Trusted Publishing bought.
+
+### Step 5, and why the tag goes on the version-bump commit
+
+`verify` cannot distinguish a commit whose CI *failed* from a commit that never got a CI run at
+all. Both make its lookup return something other than `success`, and both are refused by the same
+step, which reports the state it found (`missing`, when there is no run) and then tells you to
+land the commit on `main`, let CI pass, and re-run the workflow. For the no-run case that advice
+does not apply: re-running finds nothing to wait for, because nothing was ever queued.
+
+Two shapes of commit on `main` have no CI run of their own:
+
+- **`ci.yml`'s `push` trigger carries a `paths-ignore` list** — `.seeds/**`, `.beads/**` and
+  `**.md`. A deliberation-only or markdown-only commit produces no run. That is deliberate: those
+  paths change nothing CI tests (16 of the 64 non-merge commits before 2026-10-02 were of exactly
+  that shape, each paying a full three-Ruby Spark run), and a commit nothing tested should not
+  ship. The filter is on `push` only; `pull_request` still runs on everything, because `main`'s
+  branch protection requires the `ci` status check and a skipped workflow reports no check at all.
+  Note that GitHub evaluates a push filter over the whole pushed range, not per commit, so a batch
+  push mixing markdown commits with one code commit still produces a run at the tip — this bites
+  only a push whose entire range is ignorable.
+- **A `GITHUB_TOKEN`-driven merge triggers no workflow at all.** `origin/main`'s tip on
+  2026-10-02, `944ebd9`, is a Dependabot auto-merge squash and has zero runs of any kind, so a tag
+  there is already refused today — with or without the `paths-ignore` list. The filter widens that
+  class rather than creating it.
+
+Step 4 keeps the release path clear without any special handling: it is a human-pushed change to
+`sequel-hexspace.gemspec`, which no `paths-ignore` entry matches, so the commit being released
+always gets its own run. The only discipline needed is at step 6 — if `main` has moved on since
+step 4, tag the bump commit rather than the tip. `verify`'s on-main check accepts `ahead` as well
+as `identical`, so a tag behind the tip is fine.
 
 ### Step 2, the dependency sweep — and why a human has to do it
 
@@ -121,7 +152,7 @@ exercise judgement.
 ### GitHub runs its own copy of the workflow, not yours
 
 A tag push runs `release.yml` as it exists on GitHub, which is not necessarily the file in your
-checkout — this repo is routinely well ahead of `origin/main` (20 unpushed commits on
+checkout — this repo is routinely well ahead of `origin/main` (51 unpushed commits on
 2026-10-02, among them `f20fda8`, which is what added the tag/gemspec assertion to `verify`; the
 2.0.0 release ran without it). Step 4 above repairs this incidentally, because landing the
 version bump on `main` pushes everything else with it. The trap is only for a tag pushed from an
@@ -141,9 +172,26 @@ un-synced branch: do not read the workflow in your tree and assume that is what 
   seed `sequel-hexspace-5fh`. Making `outcomesinsights` the owner of record needs an
   Organizations invite (email support@rubygems.org); nothing breaks without it.
 
-## Open work that would change this page
+## What `release.yml` does now
 
-- `sequel-hexspace-wer` may restructure `release.yml`'s jobs — a tighter CI-green lookup, and an
-  install-and-load smoke test that would replace `rubygems/release-gem` with a hand-rolled build
-  and push. It is **open**, so nothing above assumes its shape; if it lands, the workflow rows
-  here need rechecking.
+`sequel-hexspace-wer` shipped in `703484f` and is what gave `release.yml` the two jobs this page
+describes. Checked against the file as it stands:
+
+- `verify` holds no publish rights (`actions: read`, `contents: read`) and makes three assertions,
+  in order: the tag matches `s.version` in the gemspec; the tagged commit is on `main` (`ahead` or
+  `identical` against `main`, asked of git history rather than of CI); and a successful `ci.yml`
+  run exists for exactly this `head_sha` under `event=push&branch=main`, with the *latest*
+  matching run deciding. It fails closed — an in-progress run reports its status and no run at all
+  reports `missing`, neither of which is `success`.
+- `push` builds the gem, then installs it into an empty `GEM_HOME`/`GEM_PATH` from an empty
+  directory and loads the adapter from there, asserting that `Sequel::Hexspace::Database` and
+  `Sequel::Spark::DatabaseMethods` were defined under the installed gem's own `gem_dir` and that
+  the `:spark` shared adapter registered. That check replaced `rubygems/release-gem@v1`, which
+  built and pushed in one action and so left no seam to put it in. It is spelled out step by step
+  because the gemspec's `s.files` is an allowlist and nothing else in the pipeline notices a file
+  the allowlist omits.
+
+The 2.0.0 row in the table at the top of this page predates all of it: that release was published
+by `rubygems/release-gem@v1`, before `verify` existed in this form.
+
+No open work is outstanding against this page.
