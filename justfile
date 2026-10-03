@@ -94,8 +94,28 @@ pre-push: ci
 # Must stay FAST — a sub-minute budget, since it runs on every commit. Tests
 # belong here when they fit; lint alone when they do not.
 #
+# `seeds-check` is here and NOT in `ci`/`pre-push`: a commit is the only way a
+# seed file reaches history, so gating the commit path covers every route in, and
+# `ci` is the local stand-in for a CI job on a runner that has no seeds installed.
+#
 # What runs before every commit.
-pre-commit: fmt-check lint hygiene
+pre-commit: fmt-check lint hygiene seeds-check
+
+# Not format validity -- content plausibility, plus the `--against-git` tier that
+# compares the committed corpus against the working tree. Two things it catches
+# that nothing else here does: a bulk sweep rewriting most of the corpus in one
+# field, and the single seed whose body moved while its `updated_at` did not,
+# which is the signature of a formatter or linter reaching into the store. That
+# second one is why treefmt.toml excludes `.seeds/**` -- this recipe and that
+# exclusion are two halves of one decision.
+#
+# Skips when seeds is absent, which is a deliberate hole: this is a deliberation
+# store, not shipped code, and a clone without the tool must still be able to
+# commit. Nothing else on the commit path is allowed to skip this way.
+#
+# Verify the seeds store is plausible and has not been rewritten underneath us.
+seeds-check:
+    @command -v seeds >/dev/null 2>&1 || exit 0; seeds check --against-git
 
 # Inherited from overcommit when it was removed on 2026-09-12: MergeConflicts,
 # YamlSyntax, JsonSyntax. Its RuboCop and test targets were already covered by
