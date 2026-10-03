@@ -1,0 +1,55 @@
+# This repo's tool pins, assembled from gator's canonical mise.toml (seed gator-rga,
+# ruled 2026-10-02): the [tools] lines for the tools this repo's treefmt.toml and
+# `lint`/`hygiene`/release recipes actually run, copied byte for byte. A repo carries
+# FEWER lines than the canon, never different ones.
+#
+# `mise install` fetches them; a clone anywhere works with git + mise and nothing
+# preinstalled. Installs are cached per host (~/.local/share/mise/installs), so every
+# repo pinning the same major shares one binary.
+#
+# This file is the keystone of the standard, and the thing it fixes is measured here.
+# Before it existed, a GLOBAL mise shim with no version set sat on PATH and died when
+# run: `command -v actionlint` SUCCEEDED while a bare `actionlint` failed with "mise
+# ERROR No version is set for shim: actionlint" (and likewise zizmor, treefmt, cog,
+# typos, taplo, prettier -- measured on titan 2026-10-02). `shfmt` and `shellcheck`
+# resolved to a nix profile binary and `git-cliff` to ~/.local/bin, so three tools
+# worked by accident at versions nobody chose -- git-cliff answered 2.13.1 while mise
+# had 2.14.2 installed. A per-repo pin cannot fail either way. `hygiene` therefore
+# calls `actionlint` bare now, where it used to need `mise x actionlint@1.7.12 --`.
+#
+# Pins are MAJOR-only, so a tool floats within its major and needs no bumping until a
+# major. A new rule arrives with the bump and goes red where it lands, deliberately.
+# Dependabot does not read this file; Renovate does; `mise outdated` shows what moved.
+#
+# Language-managed tools are NOT here: rubocop and its plugins travel in the Gemfile
+# via bundler, and mdformat runs through uvx with its plugins (see treefmt.toml), which
+# is why `uv` is pinned but mdformat is not.
+
+[tools]
+# the baseline a clone needs beyond git: the recipe runner and the Python toolchain
+just = "1"
+uv = "0"
+
+# the fmt layer and the formatters it drives
+"aqua:numtide/treefmt" = "2"
+shfmt = "3"
+prettier = "3"
+taplo = "0"
+
+# lint
+actionlint = "1"
+# shellcheck is not invoked by any recipe directly. actionlint shells out to it for
+# every `run:` block and SKIPS that check silently when it is absent, so `hygiene`'s
+# claim to shellcheck the workflows is only true while this line is here.
+shellcheck = "0"
+zizmor = "1"
+cocogitto = "7"
+# typos is NOT pinned: nothing here runs it. Adopting it is its own decision --
+# measured on this tree 2026-10-02 with the canon typos.toml, it reports 8
+# findings: two real misspellings in test descriptions ("seperate",
+# "concatentation", test/dataset_test.rb) and six false positives on SQL LIKE
+# pattern literals ("baR", "Fo"), which cannot be silenced without adding `ba`
+# and `fo` to extend-words and blinding the checker to those words everywhere.
+
+# release
+git-cliff = "2"

@@ -92,13 +92,28 @@ hygiene:
     # the repo root with no arguments it finds .github/workflows itself, so a
     # new workflow file is covered the day it lands.
     #
-    # Invoked through `mise x` rather than the bare `actionlint` on PATH: that
-    # is a mise shim with no version set, and it dies with "No version is set
-    # for shim: actionlint" rather than linting anything. The version is pinned
-    # so a new actionlint release cannot turn this gate red on workflows nobody
-    # touched -- bump it deliberately. If mise or actionlint is missing this
-    # fails loudly; it must never skip quietly, which is how a gate goes
-    # toothless without anyone noticing.
+    # Called BARE, as of 2026-10-02. It used to need `mise x actionlint@1.7.12
+    # -- actionlint`, because the only actionlint on PATH was a GLOBAL mise shim
+    # with no version set: `command -v actionlint` succeeded and running it died
+    # with "No version is set for shim: actionlint". The repo-local mise.toml
+    # fixes that at the root -- it pins actionlint for this tree, so the shim
+    # resolves. Demonstrated here before this line was changed, including from
+    # an explicitly UNTRUSTED checkout, since a `[tools]`-only mise.toml loads
+    # without `mise trust`.
+    #
+    # The pin is MAJOR-only now (`actionlint = "1"`), not the exact 1.7.12 this
+    # line used to carry. A new minor can therefore turn this gate red on
+    # workflows nobody touched, which is the standard's deliberate trade: a new
+    # rule arrives with the bump and goes red where it lands, rather than being
+    # invisible until someone bumps a pin by hand. `mise outdated` shows what
+    # moved.
+    #
+    # actionlint's own shellcheck pass over every `run:` block is only real
+    # while mise.toml pins shellcheck: actionlint SKIPS it silently when the
+    # binary is absent. That line is in mise.toml with this comment on it.
+    #
+    # If mise or actionlint is missing this fails loudly; it must never skip
+    # quietly, which is how a gate goes toothless without anyone noticing.
     #
     # Cost is 0.07s against this recipe's 0.54s, which is why it sits in
     # hygiene -- running at commit stage as well as pre-push -- instead of
@@ -124,6 +139,6 @@ hygiene:
     # checkout-only rule was rejected on purpose: right about one action, silent
     # about every other, and it would make this gate LOOK like it covered the
     # class. Re-probe with ./docs/permissions-gate-probe.sh.
-    mise x actionlint@1.7.12 -- actionlint -no-color -oneline || rc=1
+    actionlint -no-color -oneline || rc=1
 
     exit $rc
