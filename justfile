@@ -1,8 +1,43 @@
 # Run the full CI suite (lint + tests)
 test: lint _test
 
+# Three tools, fail-fast in this order. What each one is here for, and what it is
+# NOT here for:
+#
+#   rubocop  -- the cop set is omakase plus the whole Lint department; see
+#               .rubocop.yml. `fmt` already autocorrected everything correctable,
+#               so what reaches here is what a human has to decide about.
+#   zizmor   -- GitHub Actions security audits, run on the repo ROOT and not on
+#               .github/workflows/, because the root is what also reaches
+#               .github/dependabot.yml (confirmed in its own output: it names
+#               dependabot.yml among the files it completed).
+#   cog      -- conventional-commit subjects for everything since the last v* tag.
+#
+# zizmor IS NOT A PERMISSIONS GATE and must not be read as one. It was probed at
+# 1.30.1 against the exact under-scoped-`permissions` defect this repo cares about
+# and its output is IDENTICAL on the broken and the fixed shape, so no exit code
+# derived from it tells them apart -- the full matrix is in
+# docs/workflow-permissions.md and `hygiene` says the same thing at more length.
+# It is adopted here for its OTHER audits (artipacked, cache-poisoning,
+# adhoc-packages, template-injection and the rest), which are real and which
+# nothing else here covers. The permissions gap stays open and stays declared.
+#
+# `--offline` so a lint run makes no network call, and `--config` passed
+# EXPLICITLY rather than left to discovery: zizmor resolves a discovered config
+# against the git COMMON dir, so from one of this repo's worktrees discovery reads
+# the MAIN checkout's file and silently ignores the one on the branch being linted.
+#
+# cog needs cog.toml's `tag_prefix = "v"` to find a baseline at all. Measured here
+# 2026-10-02: with the file, "No errored commits" over a real 31-commit range and
+# rc 0; with the file moved aside, `Error: unable to get any tag` and rc 1 -- which
+# is the dangerous direction, because piped through tee or tail that error reads as
+# a pass. Do not narrow the range to make cog quiet; it is green on this history.
+#
+# Report what a formatter cannot fix: cops, workflow audits, commit subjects.
 lint:
     bundle exec rubocop
+    zizmor --offline --config .github/zizmor.yml .
+    cog check --from-latest-tag --ignore-merge-commits
 
 # The suite runs under TZ=UTC to match CI's environment, and it matters: Spark's
 # session timezone is Etc/UTC, so on a host west of UTC the server is already on
