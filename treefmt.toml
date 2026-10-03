@@ -25,8 +25,14 @@
 # those stores, taplo the .toml files and shfmt docs/permissions-gate-probe.sh, none of
 # which any recipe touched before.
 #
-# treefmt walks the git index, so a NEW file is unformatted and unchecked until it is
-# staged. Both gate recipes had that property already (they iterate `git ls-files`).
+# WHAT treefmt WALKS, measured in a throwaway repo 2026-10-02 rather than assumed,
+# because the first version of this comment asserted the opposite and was wrong. The
+# default walker is tracked files PLUS untracked ones, and it honours .gitignore: an
+# untracked, unignored file WAS formatted and did fail --fail-on-change; a gitignored
+# file and a gitignored directory were both left alone. So this is a second widening
+# over the recipes it replaced -- they iterated `git ls-files` and never saw an
+# untracked file at all -- and `coverage/` (gitignored here, and full of JSON that
+# prettier would otherwise claim) is safe without needing a [global] exclude.
 
 [global]
 excludes = [
