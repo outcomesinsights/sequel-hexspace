@@ -64,6 +64,46 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
+      # THE UPDATE-TYPE GATE. An allowlist of patch and minor, so a MAJOR bump is
+      # refused and waits for a human. It works, and it is measured rather than
+      # read off the expression: across all 38 Dependabot PRs ever opened here,
+      # the eight majors (#2 #3 #5 #11 #13 #19 #26 #29) were every one of them
+      # merged by `aguynamedryan`, while all 20 bot merges were patch or minor.
+      # Four of those majors were GROUP PRs and one was a group of two majors.
+      #
+      # Grouped PRs do not dodge this, which was the live worry: every
+      # github-actions update arrives as a group whose `update-types` includes
+      # major. fetch-metadata sets `update-type` from maxSemver() --
+      # src/dependabot/output.ts at the pinned 25dd0e34, which reduces over EVERY
+      # updated dependency and returns the first hit in the order [major, minor,
+      # patch]. A group containing a major reports semver-major.
+      #
+      # THE `== ''` CLAUSE IS DEAD CODE AND ITS STATED REASON IS FALSE. d4e29b8
+      # added it as "the update-type is empty for git ref (SHA) bumps", but at
+      # d4e29b8^ not one action here was SHA-pinned (all `@v1`/`@v5`/`@v6`/`@v7`)
+      # so no such bump existed to observe -- and a SHA-ref bump carries a real
+      # update-type anyway, because Dependabot resolves the pin to its release
+      # tag (sigstore/cosign PR #5106, a SHA-pinned actions/setup-go major, emits
+      # `update-type: version-update:semver-major`). The timing points at PR #13,
+      # a grouped major the gate refused CORRECTLY and a human then merged 16
+      # minutes before d4e29b8 was authored. The clause has never fired in 38
+      # PRs. Deleting it is recommended and needs a ruling -- do not do it in
+      # passing, and do not re-justify it with the SHA-bump story.
+      #
+      # maxSemver IGNORES an unclassifiable entry rather than failing closed, so
+      # a group pairing an unclassifiable dependency with a classified patch
+      # reports `patch` and is admitted by the ALLOWLIST, not by the clause
+      # above. Deleting the clause would not close that. Nothing observed does
+      # it.
+      #
+      # Keep this condition IDENTICAL to the one on `Enable auto-merge` below.
+      # Approving on terms the merge step does not share leaves an approved PR
+      # sitting; the reverse merges something nobody approved. The probe asserts
+      # they match.
+      #
+      # Full evidence, the decisions, and what remains unproven:
+      # docs/dependabot-auto-merge-gate.md. Re-measure with
+      # ./docs/dependabot-gate-probe.sh.
       - name: Approve PR
         if: >-
           contains(fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'),
@@ -74,6 +114,9 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Must stay byte-identical to the `Approve PR` condition above, where the
+      # gate is explained. Enabling auto-merge is the step that actually lands
+      # the commit, so if the two ever diverge this is the half that matters.
       - name: Enable auto-merge
         if: >-
           contains(fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'),
