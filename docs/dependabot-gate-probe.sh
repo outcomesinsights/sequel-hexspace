@@ -2,19 +2,21 @@
 # Probe the update-type gate in .github/workflows/dependabot-auto-merge.yml.
 #
 # The question this exists to answer (bead 9zp): can a MAJOR version bump reach
-# `main` through auto-merge? The gate admits patch and minor by allowlist and
-# also carries `|| steps.metadata.outputs.update-type == ''`, an escape hatch
-# added in d4e29b8 for bumps that report no semver update type. If a grouped PR
-# -- which is how every github-actions update arrives here -- reported no single
-# update-type, that hatch would admit a grouped major with no human and, because
-# GITHUB_TOKEN merges trigger no workflows, no CI either.
+# `main` through auto-merge? The gate is now a bare allowlist of patch and
+# minor. It also used to carry `|| steps.metadata.outputs.update-type == ''`, an
+# escape hatch added in d4e29b8 for bumps that report no semver update type,
+# which never fired in 38 PRs and rested on a false rationale -- Ryan ruled it
+# deleted (bead 9ga, 2026-10-02). An update nobody can classify therefore waits
+# for a human now, and this probe asserts that: the empty string is REFUSED.
 #
-# It does not. The answer is in dependabot/fetch-metadata at the pinned
-# 25dd0e34f4fe68f24cc83900b1fe3fe149efef98 (v3.1.0): src/dependabot/output.ts
-# sets `update-type` from maxSemver(), which reduces over EVERY updated
-# dependency and returns the first hit in the priority order [major, minor,
-# patch]. A group containing a major therefore reports semver-major. The full
-# evidence, including the eight real major PRs this repo refused, is in
+# A grouped PR -- which is how every github-actions update arrives here -- does
+# not dodge the allowlist either. The answer is in dependabot/fetch-metadata at
+# the pinned 25dd0e34f4fe68f24cc83900b1fe3fe149efef98 (v3.1.0):
+# src/dependabot/output.ts sets `update-type` from maxSemver(), which reduces
+# over EVERY updated dependency and returns the first hit in the priority order
+# [major, minor, patch]. A group containing a major therefore reports
+# semver-major. The full evidence -- the eight real major PRs this repo refused,
+# and the d4e29b8 archaeology that justifies the removal -- is in
 # docs/dependabot-auto-merge-gate.md.
 #
 # WHAT THIS PROVES AND WHAT IT DOES NOT. Part 1 extracts both `if:` expressions
@@ -148,7 +150,7 @@ for value, want, note in [
     ("version-update:semver-patch", True, "patch -- admitted (positive control)"),
     ("version-update:semver-minor", True, "minor -- admitted"),
     ("version-update:semver-major", False, "major -- REFUSED, the whole point"),
-    ("", True, "empty -- admitted by the d4e29b8 escape hatch"),
+    ("", False, "empty -- REFUSED since bead 9ga deleted the d4e29b8 hatch"),
     ("version-update:semver-unknown", False, "an unenumerated value -- refused"),
     ("VERSION-UPDATE:SEMVER-MAJOR", False, "uppercased major -- see the caveat below"),
 ]:
@@ -214,7 +216,7 @@ for types, want_type, want_admit, note in [
         False,
         "a major hiding behind a patch is still reported",
     ),
-    ([], "", True, "no dependencies at all -- the empty group",),
+    ([], "", False, "no dependencies at all -- the empty group, now refused",),
 ]:
     got = max_semver(types)
     check(
@@ -222,24 +224,26 @@ for types, want_type, want_admit, note in [
         f"{len(types)} dep(s) -> {got!r}, admitted={evaluate(gate, got)} ({note})",
     )
 
-print("\n=== THE SHARP EDGE: maxSemver IGNORES an unclassifiable entry")
+print("\n=== THE SHARP EDGE THAT IS STILL OPEN: maxSemver IGNORES an unclassifiable entry")
 # SYNTHETIC, and it has to be: no PR in this repo's history has ever produced an
 # empty update-type, so the real corpus cannot exercise this. maxSemver takes the
 # max of the three KNOWN values; an entry whose updateType is '' is simply not in
 # the priority table, so it is dropped from the set rather than failing closed.
 # A group pairing an UNCLASSIFIABLE dependency with a classified patch therefore
-# reports `patch` and is admitted -- by the ALLOWLIST clause, note, not by the
-# `== ''` escape hatch, so removing that hatch would not close this. Nothing
-# observed exhibits it; it is recorded so the next person does not have to
-# rediscover it from the TypeScript.
+# reports `patch` and is admitted -- by the ALLOWLIST, note. Deleting the
+# `== ''` hatch (bead 9ga) did NOT close this and was never going to: the hatch
+# was never on this path. The two checks below say exactly that -- the masked
+# case is STILL admitted, while the lone-unclassifiable case is what the removal
+# actually bought. Nothing observed exhibits either; they are recorded so the
+# next person does not have to rediscover them from the TypeScript.
 masked = max_semver(["", "version-update:semver-patch"])
 check(
     masked == "version-update:semver-patch" and evaluate(gate, masked) is True,
-    f"['', patch] -> {masked!r}, admitted=True -- an unclassifiable dep is INVISIBLE here",
+    f"['', patch] -> {masked!r}, admitted=True -- an unclassifiable dep is STILL INVISIBLE here",
 )
 check(
-    max_semver([""]) == "" and evaluate(gate, "") is True,
-    "[''] alone -> '' -- admitted by the escape hatch, the only path that uses it",
+    max_semver([""]) == "" and evaluate(gate, "") is False,
+    "[''] alone -> '' -- REFUSED, waits for a human; this is what deleting the hatch changed",
 )
 
 if mode == "offline":
