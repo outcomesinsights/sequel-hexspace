@@ -13,6 +13,73 @@ name: CI
 on:
   push:
     branches: [main]
+    # Skip the matrix for a commit that changes nothing this workflow can test.
+    # Measured on this tree 2026-10-02: 16 of the last 64 non-merge commits on
+    # main touched ONLY the paths below, and each one paid a full run -- a
+    # ~400MB Spark download, a thriftserver, and a 305-test suite across three
+    # Rubies, 9-11 minutes.
+    #
+    # On `push` ONLY, deliberately -- NOT on `pull_request` below. `main`'s
+    # branch protection requires the status check context `ci` (read from the
+    # live API 2026-10-02: required_status_checks.contexts == ["ci"]). A skipped
+    # workflow reports NO check at all rather than a passing one, so a
+    # markdown-only PR would sit permanently unmergeable with nothing to
+    # re-run, and dependabot-auto-merge.yml's `gh pr merge --auto` would wait
+    # on a check that never arrives. A skipped push is recoverable by pushing
+    # anything else; a skipped pull_request is not. That is also why the three
+    # entries sit here under `push:` and not at the top level of `on:`.
+    #
+    # That same protection does not block the push itself, so there is no
+    # symmetric hazard on this side: a required check cannot be evaluated
+    # against a commit the remote does not have yet, which is why a push to
+    # main is permitted and the check runs afterwards.
+    #
+    # SCOPE OF THE SAVING, per GitHub's documented `before...after` comparison
+    # for a push -- taken from their documentation, NOT measured here, because a
+    # paths filter's behaviour is only observable on a real push and this file
+    # has never been on a pushed commit: the filter is evaluated over the whole
+    # pushed RANGE, not per commit. A batch push that mixes markdown commits
+    # with one lib/
+    # commit still runs once, at the tip; only a push whose entire range is
+    # ignorable is skipped. The 16-of-64 figure above counts commits and is
+    # therefore an upper bound on runs saved. This cuts the other way too, and
+    # usefully: the tip of a mixed batch push gets a run at its own SHA even
+    # when the tip commit itself is markdown-only, which is exactly the SHA a
+    # release would tag.
+    #
+    # KNOWN INTERACTION, chosen rather than discovered: a commit matched here
+    # produces no ci.yml run at all, and release.yml's `verify` job requires a
+    # successful ci.yml run with event=push, branch=main, at the exact tagged
+    # SHA. So such a commit can never be released -- `verify` reports
+    # "missing" and refuses, with a message that reads like a CI failure. That
+    # is accepted: nothing untested should ship, the version-bump commit a
+    # release actually tags is a gemspec change that no entry here ignores, and
+    # the class already exists without this filter (origin/main's tip 944ebd9
+    # is a Dependabot auto-merge squash with zero runs of any kind, because a
+    # GITHUB_TOKEN-driven merge triggers no workflow). docs/release-setup.md's
+    # "Cutting a release" step 5 is where that is written down for a releaser.
+    #
+    # Each entry, and why two of gator-doctor's suggestions are absent:
+    #   - '.seeds/**', '.beads/**': deliberation and task tracking. Nothing in
+    #     lib/ or test/ reads either. `.beads/hooks/*` are shell scripts, but
+    #     they are local git hooks that no step in this workflow runs.
+    #   - '**.md': the `lint` job runs `bundle exec rubocop`, which reads no
+    #     markdown, and the `test` job runs `test/all.rb`, which reads none
+    #     either -- test/ names the README only inside prose comments. mdformat
+    #     and actionlint are LOCAL gates (`just fmt-check`, `just hygiene`) and
+    #     are not steps here, so ignoring markdown costs this workflow no
+    #     coverage it has. Note it does not match `README`, which has no
+    #     extension; nor would that matter, since the only check that reads the
+    #     gemspec's packaging allowlist lives in release.yml.
+    #   - NOT 'docs/**': docs/ holds permissions-gate-probe.sh, which is code.
+    #     '**.md' already covers both of its markdown pages.
+    #   - NOT '.claude/**' or 'claude_stuff/**': both are gitignored in this
+    #     repo, so neither can appear in a commit here and both entries would
+    #     be dead text that reads as coverage.
+    paths-ignore:
+      - '.seeds/**'
+      - '.beads/**'
+      - '**.md'
   pull_request:
 
 concurrency:
