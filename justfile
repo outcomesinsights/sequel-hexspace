@@ -66,7 +66,19 @@ lint:
 _test:
     TZ=UTC bundle exec rake test
 
+# .github/workflows/ci.yml splits this closure across its two jobs and runs
+# every piece of it: `lint` runs `just fmt-check lint hygiene`, `test` runs
+# `just _test` per matrix Ruby. Change one and change the other.
 ci: fmt-check test hygiene
+
+# The last step of gator's CI tool-setup prelude, and what a fresh clone runs
+# first: mise installs every tool mise.toml pins, then bundler the gems. A
+# clone needs git and mise and nothing else.
+#
+# Install the pinned tools and the bundle.
+setup:
+    mise install
+    bundle install
 
 bundle-update *ARGS:
     bundle update {{ ARGS }}

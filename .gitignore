@@ -1,6 +1,12 @@
 coverage/
 .claude/
 
+# ruby/setup-ruby's `bundler-cache: true` installs gems into ./vendor/bundle
+# INSIDE the checkout on a CI runner. `zizmor --offline .` in `just lint` honours
+# .gitignore, and without this line it audits the workflows that installed gems
+# ship and fails CI while every local clone (gems outside the repo) stays green.
+/vendor/
+
 # Gem build artifacts
 /pkg/
 /checksums/
