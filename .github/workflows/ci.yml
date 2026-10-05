@@ -62,15 +62,31 @@ on:
     # Each entry, and why two of gator-doctor's suggestions are absent:
     #   - '.seeds/**', '.beads/**': deliberation and task tracking. Nothing in
     #     lib/ or test/ reads either. `.beads/hooks/*` are shell scripts, but
-    #     they are local git hooks that no step in this workflow runs.
-    #   - '**.md': the `lint` job runs `bundle exec rubocop`, which reads no
-    #     markdown, and the `test` job runs `test/all.rb`, which reads none
-    #     either -- test/ names the README only inside prose comments. mdformat
-    #     and actionlint are LOCAL gates (`just fmt-check`, `just hygiene`) and
-    #     are not steps here, so ignoring markdown costs this workflow no
-    #     coverage it has. Note it does not match `README`, which has no
-    #     extension; nor would that matter, since the only check that reads the
-    #     gemspec's packaging allowlist lives in release.yml.
+    #     they are local git hooks that no step in this workflow runs, and
+    #     `lint`'s shellcheck lists only *.sh/*.bash, which they are not.
+    #   - '**.md': the `test` job's suite reads no markdown -- test/ names the
+    #     README only inside prose comments. Note it does not match `README`,
+    #     which has no extension; nor would that matter, since the only check
+    #     that reads the gemspec's packaging allowlist lives in release.yml.
+    #
+    # WHAT THESE ENTRIES COST NOW THAT `lint` RUNS THE JUST RECIPES (bead 2p7),
+    # decided rather than inherited. Before that bead the filter cost this
+    # workflow no coverage, because rubocop read none of these files. It costs
+    # some now: on a push to main whose WHOLE range matches, three checks that
+    # do read these paths are not run remotely --
+    #   - `fmt-check`'s mdformat, over the repo's markdown (treefmt.toml
+    #     excludes .seeds/** and .beads/**, so markdown outside them only);
+    #   - `hygiene`'s conflict-marker grep, over every tracked file;
+    #   - `hygiene`'s YAML/JSON parse, over .beads/config.yaml,
+    #     .beads/metadata.json and the .seeds YAML.
+    # Kept anyway. Every one of those checks runs at COMMIT stage locally
+    # (`just pre-commit` is fmt-check lint hygiene seeds-check), so such a push
+    # has already passed them unless a hook was bypassed; every pull_request
+    # runs them with no filter; and the alternative is paying the full Spark
+    # matrix on every docs-only push again, which is what this filter was added
+    # to stop. Splitting the markdown checks into an unfiltered second workflow
+    # was rejected: branch protection and release.yml's `verify` read only the
+    # `ci` job below, so a second workflow would be a check nothing requires.
     #   - NOT 'docs/**': docs/ holds permissions-gate-probe.sh and
     #     ci-gate-probe.sh, both of which are code.
     #     '**.md' already covers both of its markdown pages.
@@ -97,6 +113,26 @@ concurrency:
 # adding a step to any of these jobs.
 permissions: {}
 
+# THE JUSTFILE IS THE INTERFACE (bead 2p7). Every gate step below runs a just
+# recipe, never a tool directly, so CI and the local pre-push gate (`just ci`)
+# run one contract instead of two copies of it that drift. They had drifted:
+# this workflow used to run a bare `bundle exec rubocop` and never ran
+# fmt-check, shellcheck, zizmor, cog, actionlint or the YAML/JSON checks.
+#
+# `just ci` is `fmt-check test hygiene`, and `test` is `lint _test`. The two
+# jobs split that closure, with nothing left out:
+#   lint  -> just fmt-check lint hygiene   (once, on Ruby 4.0)
+#   test  -> just _test                     (per matrix Ruby)
+# `_test` and not `test`, because `test` re-runs `lint`, which needs rubocop,
+# and the test job excludes the lint group (BUNDLE_WITHOUT below). `seeds-check`
+# is deliberately local-only: the justfile says why -- a commit is the only
+# route into the seeds store, and the runner has no `seeds` binary.
+#
+# Each job starts with the tool-setup prelude from gator's standard page
+# (section "The tool-setup prelude"), in its order: checkout, mise-action
+# (installs every tool mise.toml pins -- this is the step that exercises the
+# repo's mise pins on a fresh machine), setup-just, the language setup action
+# LAST so the matrix Ruby is the one first on PATH, then `just setup`.
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -108,10 +144,18 @@ jobs:
     #     download Ruby release assets from the public ruby/ruby-builder repo. A
     #     `permissions:` block governs this repo only, so no scope here enables
     #     or disables that.
-    #   - `bundler-cache: true` drives the Actions cache service, which is
-    #     authenticated by the runner's own ACTIONS_RUNTIME_TOKEN and not by the
-    #     GITHUB_TOKEN; actions/cache's action.yml takes no token input at all.
-    #   - `bundle exec rubocop` touches no API.
+    #   - `jdx/mise-action` and `extractions/setup-just` do the same thing on
+    #     their `github_token` / `github-token` inputs (default `github.token`,
+    #     read from each action.yml at the pinned SHA): release downloads from
+    #     OTHER public repos, for rate limits only. mise-action keeps the token
+    #     to itself (`persist_github_token` defaults false), so no later step
+    #     sees it.
+    #   - `bundler-cache: true` and mise-action's tool cache drive the Actions
+    #     cache service, which is authenticated by the runner's own
+    #     ACTIONS_RUNTIME_TOKEN and not by the GITHUB_TOKEN; actions/cache's
+    #     action.yml takes no token input at all.
+    #   - the recipes touch no GitHub API: zizmor runs `--offline`, cog and
+    #     treefmt read the local clone, and uvx (mdformat) talks to PyPI.
     #
     # Measured in this repo rather than assumed: the v2.0.0 release ran
     # `ruby/setup-ruby` with `bundler-cache: true` under an explicit
@@ -127,12 +171,25 @@ jobs:
           # job to do; left in the local git config they can leak out through a
           # build step or an uploaded artifact (zizmor's artipacked).
           persist-credentials: false
+          # `lint` runs `cog check --from-latest-tag`, which needs the history
+          # and the tags; a depth-1 clone has neither and cog exits 1 with
+          # "unable to get any tag" (measured by gator in sequelizer).
+          fetch-depth: 0
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: "1" # mise.toml's pin; zizmor flags unpinned-tools without it
+      # `bundler-cache: true` installs gems into ./vendor/bundle INSIDE the
+      # checkout. That is why .gitignore carries `/vendor/`: `zizmor --offline .`
+      # in `lint` honours .gitignore, and without it zizmor audits the
+      # workflows that gems ship (rubocop-sequel's, in sequelizer's first wired
+      # run) and goes red here while staying green on every local clone.
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: "4.0"
           bundler-cache: true
-      - name: Run RuboCop
-        run: bundle exec rubocop
+      - run: just setup
+      - run: just fmt-check lint hygiene
 
   test:
     runs-on: ubuntu-latest
@@ -143,8 +200,8 @@ jobs:
     name: Test Ruby ${{ matrix.ruby }}
 
     # `contents: read` is for the checkout, and again is the whole of it. Beyond
-    # the setup-ruby and cache reasoning on the `lint` job above, this job adds
-    # two steps and neither needs a scope:
+    # the setup-ruby, mise-action, setup-just and cache reasoning on the `lint`
+    # job above, this job adds two steps and neither needs a scope:
     #
     #   - `actions/cache` for the Spark download: same cache service, same
     #     runtime token, no token input on the action.
@@ -156,8 +213,9 @@ jobs:
     #     `github-token` inputs, which nothing here does.
     #
     # The Spark tarball comes from archive.apache.org and `bundle install` from
-    # rubygems.org; the Gemfile has no git sources. No step in this job calls
-    # the GitHub API.
+    # rubygems.org; the Gemfile has no git sources. The only GitHub API calls in
+    # this job are the release downloads of the three setup actions, against
+    # other public repos, which no scope here governs.
     permissions:
       contents: read
 
@@ -176,6 +234,11 @@ jobs:
           # This job uploads an artifact, which is the exact path by which a
           # persisted credential escapes the runner. Nothing here pushes.
           persist-credentials: false
+          # No fetch-depth: this job runs `_test` only, never cog.
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: "1" # mise.toml's pin; zizmor flags unpinned-tools without it
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with:
           ruby-version: ${{ matrix.ruby }}
@@ -185,6 +248,9 @@ jobs:
           # those caches rather than consuming one across a trust boundary.
           # release.yml's publishing job is the one that sets this to false.
           bundler-cache: true
+      # Honours BUNDLE_WITHOUT above, so its `bundle install` is a no-op over
+      # bundler-cache rather than a second install that pulls the lint group.
+      - run: just setup
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -199,7 +265,10 @@ jobs:
           mv "spark-$SPARK_VERSION-bin-hadoop3" ~/spark
 
       - run: ~/spark/sbin/start-thriftserver.sh && sleep 20
-      - run: bundle exec rake test
+      # `_test` is private (hidden from `just --list`) but invocable, and it is
+      # the recipe `test` and therefore `ci` run locally -- same TZ=UTC, same
+      # rake task.
+      - run: just _test
         env:
           SEQUEL_INTEGRATION_URL: "hexspace:///"
           RUNNING_IN_CI: "1"
