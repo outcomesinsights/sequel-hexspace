@@ -59,10 +59,9 @@
 header = ""
 body = """
 {%- if commits | length == 0 -%}
-{#- An empty range renders nothing at all. Without this guard a deps-only range
-    still emits a bare `## 2.0.0 (today)` heading naming the version already
-    published -- precisely the thing somebody pastes in by reflex. No commits, no
-    section. -#}
+{#- An empty range renders nothing. Without this guard a deps-only range still emits a
+    bare heading naming the version already published -- precisely the thing somebody
+    pastes in by reflex (sequel-hexspace, gator-uem). No commits, no section. -#}
 {%- else -%}
 {%- if version -%}
 ## {{ version | trim_start_matches(pat="v") }} ({{ timestamp | date(format="%Y-%m-%d") }})
@@ -120,6 +119,11 @@ protect_breaking_commits = true
 # The only tags here are v1.0.0 and v2.0.0. Anchored at both ends so a tag that
 # merely starts with a version (a `v2.0.0-rc1`, were one ever cut) cannot pass for
 # a release and move the baseline cliff measures the next version from.
+#
+# KEEP THE `$`. This repo anchored it first; gator's canon was unanchored until it
+# adopted this anchor in gator-2x6 (2026-10-04), and now matches. Should canon and
+# this line ever differ again, a "sync with canon" that drops the `$` is a
+# weakening, not a sync -- fix canon, not this.
 tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
 topo_order = false
 sort_commits = "newest"
@@ -135,12 +139,8 @@ commit_parsers = [
   # covered by the gemspec diff in docs/release-setup.md, not by this file.
   { message = "^chore", skip = true },
   { message = "^ci", skip = true },
-  { message = "^test", skip = true },
-  { message = "^style", skip = true },
-  { message = "^docs", skip = true },
-  { message = "^bd:", skip = true },
 
-  # NOT skipped, unlike the tooling types above, and the reason is the trap this
+  # NOT skipped, unlike the tooling types around it, and the reason is the trap this
   # rule exists to defuse: `build:` is the honest conventional type for a change
   # to a declared gem dependency, so picking the type CORRECTLY is what used to
   # lose the change. 94f85c8 added a runtime ceiling (`hexspace < 0.4`) under
@@ -160,7 +160,16 @@ commit_parsers = [
   # will draft an entry and justify a patch bump, and the human editing the
   # draft deletes it. Dependabot is unaffected: it writes `chore(deps)`, which
   # is still skipped, so a deps-only range still yields no version.
+  #
+  # Sits here, between ^ci and ^test, only because canon's list does (gator-doctor
+  # compares the parser lists in order). First match wins, but no skip rule
+  # above or below it matches a `build:` message, so the position changes nothing.
   { message = "^build", group = "Changed" },
+
+  { message = "^test", skip = true },
+  { message = "^style", skip = true },
+  { message = "^docs", skip = true },
+  { message = "^bd:", skip = true },
 
   { message = "^feat", group = "Added" },
   # Known over-inclusion, left as-is on purpose: this history has `fix(just)`,
@@ -202,6 +211,15 @@ commit_parsers = [
 # itself the moment anything reuses this file or reads it as the house style --
 # which is reason enough to state the intended values here rather than inherit
 # them.
+#
+# This is the one table that deliberately differs from gator's canon, and canon
+# says so itself: its header reserves the two `= false` lines for a 0.x gem and
+# says a gem at 1.0 or above follows ordinary SemVer and leaves them out. (The
+# doctor used to prescribe the 0.x rules to this gem; gator-n4a stopped it.)
+# gator-doctor excludes [bump] from its canon comparison and only checks these
+# keys against a 0.x version, so neither value raises a finding.
+# Do not flip these to `false` to "match canon" -- inert at >= 1.0 or not, that
+# encodes the 0.x promise this gem has outgrown.
 [bump]
 features_always_bump_minor = true
 breaking_always_bump_major = true
