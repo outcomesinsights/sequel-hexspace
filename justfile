@@ -1,12 +1,24 @@
 # Run the full CI suite (lint + tests)
 test: lint _test
 
-# Three tools, fail-fast in this order. What each one is here for, and what it is
+# Four tools, fail-fast in this order. What each one is here for, and what it is
 # NOT here for:
 #
 #   rubocop  -- the cop set is omakase plus the whole Lint department; see
 #               .rubocop.yml. `fmt` already autocorrected everything correctable,
 #               so what reaches here is what a human has to decide about.
+#   shellcheck
+#            -- every TRACKED standalone shell script. treefmt's shfmt only
+#               FORMATS them; this is their lint. Shell inside a workflow `run:`
+#               block is the other path -- actionlint shellchecks that, in
+#               `hygiene` -- and until this line the same shell was linted inside
+#               a workflow and not in a script. Threshold is `-S warning`: errors
+#               and warnings fail, info and style do not. The docs/*.sh probes
+#               were measured clean at that threshold on 2026-10-02.
+#               The list comes from `git ls-files`, never a glob or a hand-list:
+#               a hand-list goes stale the day a script is added, and an
+#               unmatched glob is fatal in zsh. `xargs -r` makes a tree with no
+#               tracked scripts a pass instead of a bare-`shellcheck` usage error.
 #   zizmor   -- GitHub Actions security audits, run on the repo ROOT and not on
 #               .github/workflows/, because the root is what also reaches
 #               .github/dependabot.yml (confirmed in its own output: it names
@@ -36,6 +48,7 @@ test: lint _test
 # Report what a formatter cannot fix: cops, workflow audits, commit subjects.
 lint:
     bundle exec rubocop
+    git ls-files -z '*.sh' '*.bash' | xargs -0 -r shellcheck -S warning
     zizmor --offline --config .github/zizmor.yml .
     cog check --from-latest-tag --ignore-merge-commits
 
@@ -178,6 +191,9 @@ hygiene:
     # actionlint's own shellcheck pass over every `run:` block is only real
     # while mise.toml pins shellcheck: actionlint SKIPS it silently when the
     # binary is absent. That line is in mise.toml with this comment on it.
+    # This covers workflow `run:` blocks ONLY; tracked standalone .sh/.bash
+    # scripts are shellchecked directly by `lint`, which fails loudly if the
+    # binary is missing rather than skipping.
     #
     # If mise or actionlint is missing this fails loudly; it must never skip
     # quietly, which is how a gate goes toothless without anyone noticing.

@@ -38,9 +38,10 @@ taplo = "0"
 
 # lint
 actionlint = "1"
-# shellcheck is not invoked by any recipe directly. actionlint shells out to it for
-# every `run:` block and SKIPS that check silently when it is absent, so `hygiene`'s
-# claim to shellcheck the workflows is only true while this line is here.
+# shellcheck runs two ways. `lint` invokes it directly over every tracked .sh/.bash
+# file. actionlint (in `hygiene`) shells out to it for every workflow `run:` block
+# and SKIPS that check silently when it is absent, so `hygiene`'s claim to
+# shellcheck the workflows is only true while this line is here.
 shellcheck = "0"
 zizmor = "1"
 cocogitto = "7"
