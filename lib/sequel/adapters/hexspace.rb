@@ -87,13 +87,7 @@ module Sequel
             h = {}
             column_info.each do |i, name, conversion_proc|
               value = row[i]
-              h[name] = if value.nil?
-                nil
-              elsif conversion_proc
-                conversion_proc.call(value)
-              else
-                value
-              end
+              h[name] = conversion_proc && !value.nil? ? conversion_proc.call(value) : value
             end
             yield h
           end
