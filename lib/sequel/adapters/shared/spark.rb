@@ -539,7 +539,7 @@ module Sequel
       end
 
       def literal_blob_append(sql, v)
-        sql << "to_binary('" << [ v ].pack("m*").gsub("\n", "") << "', 'base64')"
+        sql << "to_binary('" << [ v ].pack("m0") << "', 'base64')"
       end
 
       # Spark requires DATE 'YYYY-MM-DD' syntax instead of plain quoted strings
