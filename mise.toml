@@ -37,7 +37,11 @@ prettier = "3"
 taplo = "0"
 
 # lint
-actionlint = "1"
+# Spelled with its explicit backend, not the `actionlint` short name: mise's
+# registry deprecated that alias in favour of a two-day-old fork, and the warning
+# hangs on the alias. Same upstream binary (rhysd/actionlint), still invoked as
+# `actionlint`. Ruled in gator-wpm (2026-10-07); revisit 2026-12-07.
+"aqua:rhysd/actionlint" = "1"
 # shellcheck runs two ways. `lint` invokes it directly over every tracked .sh/.bash
 # file. actionlint (in `hygiene`) shells out to it for every workflow `run:` block
 # and SKIPS that check silently when it is absent, so `hygiene`'s claim to
