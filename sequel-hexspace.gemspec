@@ -50,16 +50,11 @@ END
   # in lib/sequel/adapters/hexspace.rb, covered by
   # test/thrift_client_compat_test.rb, so 0.24 is supported rather than excluded.
   s.add_dependency('thrift', '>= 0.18', '< 0.25')
-  # The bounds on rake, minitest-hooks and minitest-global_expectations below are
+  # The bounds on minitest, minitest-hooks and minitest-global_expectations below are
   # development-only: nothing that resolves this gem as a dependency installs
   # them, so each is a checkpoint on this repo's own dev/CI environment rather
   # than a promise to consumers. Each sits at the major CI actually exercises, so
   # a new major cannot arrive unannounced.
-  #
-  # rake: the Rakefile uses only `desc`/`task`/`sh`, FileUtils::RUBY and
-  # bundler/gem_tasks -- all stable across the whole of rake 13 (current since
-  # 2019), so the bound costs nothing and rake 14 gets looked at when it exists.
-  s.add_development_dependency('rake', '~> 13.0')
   s.add_development_dependency("minitest", '~> 6.0')
   # This one is NOT just hygiene -- the floor is a real requirement.
   # minitest-hooks declares only `minitest > 5.3`, loose enough for bundler to

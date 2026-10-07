@@ -267,7 +267,7 @@ jobs:
       - run: ~/spark/sbin/start-thriftserver.sh && sleep 20
       # `_test` is private (hidden from `just --list`) but invocable, and it is
       # the recipe `test` and therefore `ci` run locally -- same TZ=UTC, same
-      # rake task.
+      # `ruby test/all.rb`.
       - run: just _test
         env:
           SEQUEL_INTEGRATION_URL: "hexspace:///"

@@ -64,7 +64,7 @@ lint:
 # What this adapter should do when the two differ is a real question and is not
 # answered here.
 _test:
-    TZ=UTC bundle exec rake test
+    TZ=UTC bundle exec ruby test/all.rb
 
 # .github/workflows/ci.yml splits this closure across its two jobs and runs
 # every piece of it: `lint` runs `just fmt-check lint hygiene`, `test` runs
