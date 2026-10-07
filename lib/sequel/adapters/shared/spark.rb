@@ -278,9 +278,7 @@ module Sequel
           h[k] = v || 0
         end
 
-        if h[:weeks]
-          h[:days] += h[:weeks] * 7
-        end
+        h[:days] += h[:weeks] * 7
 
         if h[:years] != 0 || h[:months] != 0
           expr = Sequel.+(expr, Sequel.function(:make_ym_interval, h[:years], h[:months]))
