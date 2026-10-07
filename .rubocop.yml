@@ -78,9 +78,9 @@ AllCops:
   # and not whenever Dependabot happens to fire. Decided 2026-09-12.
   NewCops: disable
   Exclude:
+    # vendor/ is live, not boilerplate: ruby/setup-ruby's bundler-cache installs
+    # gems into ./vendor/bundle inside the checkout on CI (see .gitignore).
     - "vendor/**/*"
-    - "bin/**/*"
-    - "tmp/**/*"
     # Scratch space for diagnostics, captured test output and throwaway debug
     # scripts. It is gitignored globally on this host, which is exactly why its
     # absence here was invisible: git never shows the files, and rubocop does
