@@ -267,11 +267,10 @@ jobs:
       - run: ~/spark/sbin/start-thriftserver.sh && sleep 20
       # `_test` is private (hidden from `just --list`) but invocable, and it is
       # the recipe `test` and therefore `ci` run locally -- same TZ=UTC, same
-      # rake task.
+      # `ruby test/all.rb`.
       - run: just _test
         env:
           SEQUEL_INTEGRATION_URL: "hexspace:///"
-          RUNNING_IN_CI: "1"
       - name: Upload Coverage
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

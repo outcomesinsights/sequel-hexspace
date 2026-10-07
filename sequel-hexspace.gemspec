@@ -47,19 +47,19 @@ END
   # thrift 0.24 removed Thrift::Client#handle_exception and #reply_seqid, which
   # hexspace's generated client still calls -> NoMethodError on every Spark
   # connection (Sequel::DatabaseConnectionError). Both are restored by the shim
-  # in lib/sequel/adapters/hexspace.rb, covered by
+  # in lib/sequel/adapters/hexspace/thrift_compat.rb, covered by
   # test/thrift_client_compat_test.rb, so 0.24 is supported rather than excluded.
-  s.add_dependency('thrift', '>= 0.18', '< 0.25')
-  # The bounds on rake, minitest-hooks and minitest-global_expectations below are
+  #
+  # The floor is 0.23 rather than hexspace's own 0.18 because thrift 0.22.0 emits
+  # a frozen-string-literal warning on Ruby 3.4+ (THRIFT-5909) that this gem used
+  # to silence with a backport nothing here ever loaded -- the lockfile resolves
+  # 0.24. Raising the floor deleted the backport (sequel-hexspace-g8b.3).
+  s.add_dependency('thrift', '>= 0.23', '< 0.25')
+  # The bounds on minitest, minitest-hooks and minitest-global_expectations below are
   # development-only: nothing that resolves this gem as a dependency installs
   # them, so each is a checkpoint on this repo's own dev/CI environment rather
   # than a promise to consumers. Each sits at the major CI actually exercises, so
   # a new major cannot arrive unannounced.
-  #
-  # rake: the Rakefile uses only `desc`/`task`/`sh`, FileUtils::RUBY and
-  # bundler/gem_tasks -- all stable across the whole of rake 13 (current since
-  # 2019), so the bound costs nothing and rake 14 gets looked at when it exists.
-  s.add_development_dependency('rake', '~> 13.0')
   s.add_development_dependency("minitest", '~> 6.0')
   # This one is NOT just hygiene -- the floor is a real requirement.
   # minitest-hooks declares only `minitest > 5.3`, loose enough for bundler to

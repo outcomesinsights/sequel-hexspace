@@ -4,7 +4,7 @@ PATH
     sequel-hexspace (2.0.0)
       hexspace (>= 0.2.1, < 0.4)
       sequel (~> 5.0)
-      thrift (>= 0.18, < 0.25)
+      thrift (>= 0.23, < 0.25)
 
 GEM
   remote: https://rubygems.org/
@@ -52,7 +52,6 @@ GEM
     racc (1.8.1)
     rack (3.2.7)
     rainbow (3.1.1)
-    rake (13.4.2)
     regexp_parser (2.12.0)
     rubocop (1.91.0)
       json (>= 2.3)
@@ -105,11 +104,9 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
-  base64
   minitest (~> 6.0)
   minitest-global_expectations (~> 1.0)
   minitest-hooks (~> 1.5, >= 1.5.4)
-  rake (~> 13.0)
   rubocop (~> 1.91)
   rubocop-minitest (~> 0.25)
   rubocop-rails-omakase (~> 1.1)

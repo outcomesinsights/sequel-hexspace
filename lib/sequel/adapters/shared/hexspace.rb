@@ -4,13 +4,8 @@ require_relative "spark"
 
 module Sequel
   module Hexspace
-    module DatabaseMethods
-      include Sequel::Spark::DatabaseMethods
-    end
-
-    module DatasetMethods
-      include Sequel::Spark::DatasetMethods
-    end
+    DatabaseMethods = Sequel::Spark::DatabaseMethods
+    DatasetMethods = Sequel::Spark::DatasetMethods
   end
 
   Sequel::Database.set_shared_adapter_scheme(:hexspace, Sequel::Hexspace)
