@@ -23,14 +23,14 @@
 # actually emits (see the `^fix` note below): the draft needs an editor, so the
 # design should not pretend otherwise.
 #
-# The headings below deliberately match what CHANGELOG.md already uses -- `## X.Y.Z
-# (YYYY-MM-DD)` and `### Breaking` / `### Added` / `### Fixed` / `### Changed`, not
-# the `## [X.Y.Z] - date` of the sibling gems' configs -- so a pasted draft reads
-# as part of the same file. The blank line after each heading is there because
-# `just fmt-check` runs mdformat over every tracked *.md and wants one, so the
-# draft's STRUCTURE pastes in clean. Its prose may not: a multi-paragraph
-# BREAKING CHANGE body collapses to one line with doubled spaces at the old
-# paragraph breaks, which mdformat rewrites. Run `just fmt` after pasting.
+# The template is gator's canon (standard/cliff.toml, gator-cf4): complete Keep a
+# Changelog -- `## [X.Y.Z] - YYYY-MM-DD`, `### Breaking changes` / `### Added` /
+# `### Fixed` / `### Changed`, scopes as a bold prefix, and a footer of compare-link
+# definitions. A `--unreleased --bump` draft therefore ENDS with one `[X.Y.Z]: ...`
+# line: move it to the end of CHANGELOG.md with the other definitions, not under the
+# section. Then run `just fmt` -- mdformat sorts the definitions and lowercases their
+# labels, and a multi-paragraph BREAKING CHANGE body collapses to one line with
+# doubled spaces that the same run rewrites.
 #
 # Only changes to the shipped gem count. Tooling, CI, tests, docs and MECHANICAL
 # dependency bumps are skipped, so a week of nothing but those yields no commits,
@@ -64,28 +64,45 @@ body = """
     pastes in by reflex (sequel-hexspace, gator-uem). No commits, no section. -#}
 {%- else -%}
 {%- if version -%}
-## {{ version | trim_start_matches(pat="v") }} ({{ timestamp | date(format="%Y-%m-%d") }})
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else -%}
-## Unreleased
+## [Unreleased]
 {% endif %}
 {%- set breaking = commits | filter(attribute="breaking", value=true) -%}
 {% if breaking | length > 0 %}
-### Breaking
+### Breaking changes
 
 {% for commit in breaking -%}
-- {{ commit.message | split(pat="\\n") | first | upper_first | trim }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/outcomesinsights/sequel-hexspace/commit/{{ commit.id }})){% if commit.breaking_description and commit.breaking_description != commit.message %}: {{ commit.breaking_description | replace(from="\n", to=" ") | trim }}{% endif %}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\\n") | first | upper_first | trim }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/outcomesinsights/sequel-hexspace/commit/{{ commit.id }})){% if commit.breaking_description and commit.breaking_description != commit.message %}: {{ commit.breaking_description | replace(from="\n", to=" ") | trim }}{% endif %}
 {% endfor %}
 {%- endif -%}
 {% for group, commits in commits | filter(attribute="breaking", value=false) | group_by(attribute="group") %}
 ### {{ group }}
 
 {% for commit in commits -%}
-- {{ commit.message | split(pat="\\n") | first | upper_first | trim }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/outcomesinsights/sequel-hexspace/commit/{{ commit.id }}))
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\\n") | first | upper_first | trim }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/outcomesinsights/sequel-hexspace/commit/{{ commit.id }}))
 {% endfor %}
 {%- endfor %}
-{%- endif -%}
+{% endif -%}
 """
-footer = ""
+footer = """
+{%- set_global defs = [] -%}
+{%- for release in releases -%}
+  {%- if release.commits | length == 0 %}{% continue %}{% endif -%}
+  {%- set from = release.previous.version | default(value="") -%}
+  {%- if release.version -%}
+    {%- set label = release.version | trim_start_matches(pat="v") -%}
+    {%- if from -%}
+      {%- set_global defs = defs | concat(with="[" ~ label ~ "]: https://github.com/outcomesinsights/sequel-hexspace/compare/" ~ from ~ "..." ~ release.version) -%}
+    {%- else -%}
+      {%- set_global defs = defs | concat(with="[" ~ label ~ "]: https://github.com/outcomesinsights/sequel-hexspace/releases/tag/" ~ release.version) -%}
+    {%- endif -%}
+  {%- elif from -%}
+    {%- set_global defs = defs | concat(with="[Unreleased]: https://github.com/outcomesinsights/sequel-hexspace/compare/" ~ from ~ "...HEAD") -%}
+  {%- endif -%}
+{%- endfor -%}
+{{ defs | join(sep="\n") }}
+"""
 trim = true
 
 [git]

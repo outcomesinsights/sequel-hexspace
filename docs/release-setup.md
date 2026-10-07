@@ -61,15 +61,16 @@ condition to revisit under is therefore concrete — if `release.yml` ever gains
 
 In order, because each step gates the next:
 
-1. Draft the changelog section: `git-cliff --unreleased --bump`. It prints a `## X.Y.Z (date)`
+1. Draft the changelog section: `git-cliff --unreleased --bump`. It prints a `## [X.Y.Z] - date`
    section and `git-cliff --bumped-version` prints the version that goes in the gemspec at step 4.
    `cliff.toml` only ever **drafts** — do not run it with `--prepend CHANGELOG.md` or
    `-o CHANGELOG.md`.
 2. **Sweep for consumer-visible changes the draft cannot see** (see below). This step relies on a
    human and nothing enforces it.
 3. Paste the draft into `CHANGELOG.md` above the previous section, edit it, and add a line by hand
-   for anything the sweep turned up. Then run `just fmt`, because a pasted draft's prose is not
-   mdformat-clean even though its structure is. The hand-written prose in `CHANGELOG.md` —
+   for anything the sweep turned up. The draft ends with one `[X.Y.Z]: …/compare/…` link
+   definition; move it to the end of the file with the others. Then run `just fmt`, because a
+   pasted draft's prose is not mdformat-clean even though its structure is. The hand-written prose in `CHANGELOG.md` —
    notably 2.0.0's "Note on the gap since 1.0.0" — is not regenerable; never overwrite it.
 4. Bump `s.version` in `sequel-hexspace.gemspec` to match the drafted version and land it, with
    the `CHANGELOG.md` edit, on `main`.
