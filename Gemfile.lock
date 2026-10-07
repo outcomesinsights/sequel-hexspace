@@ -104,7 +104,6 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
-  base64
   minitest (~> 6.0)
   minitest-global_expectations (~> 1.0)
   minitest-hooks (~> 1.5, >= 1.5.4)

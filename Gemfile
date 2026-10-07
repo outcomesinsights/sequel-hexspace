@@ -4,9 +4,6 @@ source "https://rubygems.org"
 
 gemspec
 
-# thrift 0.22.0 requires base64 but doesn't declare it; removed from default gems in Ruby 3.4
-gem "base64"
-
 # Linters live here, not in the gemspec's development dependencies: rubocop
 # pulls in parallel, whose required_ruby_version is >= 3.3 -- exactly the floor
 # of the CI matrix since Ruby 3.2 was dropped on 2026-10-01. That leaves no
