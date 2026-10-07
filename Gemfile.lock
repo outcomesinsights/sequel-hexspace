@@ -4,7 +4,7 @@ PATH
     sequel-hexspace (2.0.0)
       hexspace (>= 0.2.1, < 0.4)
       sequel (~> 5.0)
-      thrift (>= 0.18, < 0.25)
+      thrift (>= 0.23, < 0.25)
 
 GEM
   remote: https://rubygems.org/

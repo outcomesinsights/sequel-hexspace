@@ -49,7 +49,12 @@ END
   # connection (Sequel::DatabaseConnectionError). Both are restored by the shim
   # in lib/sequel/adapters/hexspace.rb, covered by
   # test/thrift_client_compat_test.rb, so 0.24 is supported rather than excluded.
-  s.add_dependency('thrift', '>= 0.18', '< 0.25')
+  #
+  # The floor is 0.23 rather than hexspace's own 0.18 because thrift 0.22.0 emits
+  # a frozen-string-literal warning on Ruby 3.4+ (THRIFT-5909) that this gem used
+  # to silence with a backport nothing here ever loaded -- the lockfile resolves
+  # 0.24. Raising the floor deleted the backport (sequel-hexspace-g8b.3).
+  s.add_dependency('thrift', '>= 0.23', '< 0.25')
   # The bounds on minitest, minitest-hooks and minitest-global_expectations below are
   # development-only: nothing that resolves this gem as a dependency installs
   # them, so each is a checkpoint on this repo's own dev/CI environment rather
