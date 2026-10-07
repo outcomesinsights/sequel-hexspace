@@ -47,7 +47,7 @@ END
   # thrift 0.24 removed Thrift::Client#handle_exception and #reply_seqid, which
   # hexspace's generated client still calls -> NoMethodError on every Spark
   # connection (Sequel::DatabaseConnectionError). Both are restored by the shim
-  # in lib/sequel/adapters/hexspace.rb, covered by
+  # in lib/sequel/adapters/hexspace/thrift_compat.rb, covered by
   # test/thrift_client_compat_test.rb, so 0.24 is supported rather than excluded.
   #
   # The floor is 0.23 rather than hexspace's own 0.18 because thrift 0.22.0 emits

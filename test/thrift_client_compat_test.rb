@@ -16,7 +16,7 @@ class FakeThriftProtocol
   def skip(type); end
 end
 
-# Guards the shim in lib/sequel/adapters/hexspace.rb that restores
+# Guards the shim in lib/sequel/adapters/hexspace/thrift_compat.rb that restores
 # Thrift::Client#handle_exception and #reply_seqid, which thrift 0.24.0 removed
 # and hexspace's generated client still calls 21 times each.
 #
