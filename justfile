@@ -75,10 +75,13 @@ ci: fmt-check test hygiene
 # first: mise installs every tool mise.toml pins, then bundler the gems. A
 # clone needs git and mise and nothing else.
 #
-# Install the pinned tools and the bundle.
+# Install the pinned tools and the bundle, then arm the tracked hooks (.githooks). bd
+# bootstrap, never bd init: in a clone that already has .beads, init re-points the hooks and commits.
 setup:
     mise install
     bundle install
+    @if [ -d .beads ] && [ ! -d .beads/embeddeddolt ] && command -v bd >/dev/null 2>&1; then bd bootstrap; fi
+    @if [ -d .githooks ]; then git config core.hooksPath .githooks; fi
 
 bundle-update *ARGS:
     bundle update {{ ARGS }}
