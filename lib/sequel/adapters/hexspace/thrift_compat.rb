@@ -1,3 +1,4 @@
+# rubocop:disable all
 # Restore Thrift::Client#handle_exception and #reply_seqid for thrift >= 0.24.
 #
 # hexspace's generated Thrift client (lib/hexspace/tcli_service.rb) calls both,
@@ -23,11 +24,11 @@
 if defined?(Thrift::Client)
   # Both method bodies below are copied verbatim from thrift 0.23.0 and
   # deliberately not restyled: keeping them byte-comparable with upstream is
-  # what makes them auditable. That is enforced by where this file lives, not by
-  # inline directives: .rubocop.yml excludes this one path, and treefmt runs
-  # rubocop with --force-exclusion so `just fmt` honours that exclusion even
-  # though it names files explicitly. This file holds the shim and nothing else
-  # so the rest of the adapter stays linted.
+  # what makes them auditable. That is enforced by the `rubocop:disable all` on
+  # this file's first line, which rubocop honours however it is invoked -- a
+  # .rubocop.yml Exclude is not, because rubocop ignores Exclude for a path named
+  # on the command line and treefmt names them. This file holds the shim and
+  # nothing else so the rest of the adapter stays linted.
   #
   # reply_seqid also cannot be renamed to a predicate -- hexspace's generated
   # client calls it by that exact name.

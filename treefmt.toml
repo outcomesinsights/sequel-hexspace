@@ -61,7 +61,6 @@ command = "bundle"
 options = [
   "exec",
   "rubocop",
-  "--force-exclusion",
   "--autocorrect",
   "--fail-level",
   "F",
