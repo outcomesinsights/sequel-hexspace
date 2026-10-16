@@ -133,15 +133,16 @@ filter_commits = true
 # gives "nothing to bump". So without this a breaking change filed under a
 # tooling type ships no release at all.
 protect_breaking_commits = true
-# The only tags here are v1.0.0 and v2.0.0. Anchored at both ends so a tag that
-# merely starts with a version (a `v2.0.0-rc1`, were one ever cut) cannot pass for
-# a release and move the baseline cliff measures the next version from.
+# Anchored at both ends so a tag that merely starts with a version (a `v2.0.0-rc1`
+# or a four-part `v2.0.0.1`) cannot pass for a release and move the baseline cliff
+# measures the next version from. The optional `-a.N` suffix is the fleet's dotted
+# pre-release form (gator-4ws.30), so an alpha such as `v2.1.0-a.1` counts as a
+# release boundary. Undotted `rc1` and `a8` stay rejected. This line is gator's canon
+# verbatim (standard/cliff.toml).
 #
-# KEEP THE `$`. This repo anchored it first; gator's canon was unanchored until it
-# adopted this anchor in gator-2x6 (2026-10-04), and now matches. Should canon and
-# this line ever differ again, a "sync with canon" that drops the `$` is a
-# weakening, not a sync -- fix canon, not this.
-tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+# KEEP THE `$`. A "sync with canon" that drops it is a weakening, not a sync -- fix
+# canon, not this.
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[a-z]+\\.[0-9]+)?$"
 topo_order = false
 sort_commits = "newest"
 
