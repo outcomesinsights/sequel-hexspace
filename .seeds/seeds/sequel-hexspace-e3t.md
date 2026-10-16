@@ -1,10 +1,12 @@
 ---
 id: sequel-hexspace-e3t
 title: 'Unruled from the release review: ci-green lookup strictness and v* tag rulesets'
-status: captured
+status: resolved
 type: question
 created_at: 2026-10-01T22:16:31.535884+00:00
-updated_at: 2026-10-01T22:16:31.535884+00:00
+updated_at: 2026-10-16T13:30:49.205036+00:00
+resolved_at: 2026-10-16T13:30:49.205027+00:00
+resolution: Both questions ruled 2026-10-01; CI lookup built in 703484f, v* tag ruleset verified by gator-doctor --remote
 tags:
   - release
   - ci
@@ -62,3 +64,15 @@ protect nobody.
 Ryan has not ruled. Filing them as beads would present unsettled design questions as
 approved work, and both change release behaviour: one can block a legitimate release,
 the other can block a tag push outright.
+
+## RULED 2026-10-01, found already built on 2026-10-16
+
+Both questions were ruled on 2026-10-01 in the release review. This seed was never updated.
+
+1. CI lookup: only a successful run of ci.yml from a push to main, at exactly the tagged SHA,
+   counts. Built here in 703484f (release.yml queries `event=push&branch=main` and filters on
+   path and head_sha). sequel-duckdb built the same rule in cf71a2d. gator-107 records the ruling.
+2. v\* tags: an active tag ruleset on refs/tags/v\* with deletion and update rules and NO bypass
+   actors. Tag creation stays unrestricted. `gator-doctor --remote` checks this
+   (tag_ruleset_finding) and reports no finding for this repo on 2026-10-16, so the ruleset is
+   in place on origin.
