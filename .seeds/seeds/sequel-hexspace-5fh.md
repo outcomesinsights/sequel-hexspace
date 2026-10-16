@@ -1,10 +1,10 @@
 ---
 id: sequel-hexspace-5fh
 title: 'Single-owner risk across the OI gems: co-owner, role account, or Trusted Publishing?'
-status: captured
+status: deferred
 type: idea
 created_at: 2026-09-30T14:00:06.298689+00:00
-updated_at: 2026-09-30T14:00:06.298689+00:00
+updated_at: 2026-10-16T13:23:11.441682+00:00
 tags:
   - rubygems
   - ownership
@@ -66,3 +66,16 @@ beta a gem is owned by user accounts only.
 Trusted Publishing for the release path plus one human co-owner for
 administration. Not acted on -- the choice of person and of account shape is
 Ryan's.
+
+## DEFERRED 2026-10-16: wait for RubyGems Organizations to leave private beta
+
+Ryan, 2026-10-16: "thought we were waiting until some rubygem feature was out of beta?"
+No earlier ruling was recorded. On 2026-10-02 the question was parked because the likely
+second owner has no rubygems.org account and Organizations is in private beta. The agent
+then asked "wait for orgs, or ask Mark?" and no answer was captured. This note records the
+answer: wait for Organizations.
+
+Facts that changed since this seed was written: Trusted Publishing is in place
+(`sequel-hexspace-wer`, shipped in 703484f; release.yml publishes under the `release` environment
+with no API key). The only capability that still depends on one personal account is
+administration: yanking and owner management.

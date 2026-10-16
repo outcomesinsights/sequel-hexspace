@@ -1,10 +1,10 @@
 ---
 id: sequel-hexspace-47x
 title: Offer ankane/hexspace an upstream fix for thrift 0.24 support
-status: captured
+status: deferred
 type: exploration
 created_at: 2026-09-05T18:58:14.330453+00:00
-updated_at: 2026-09-30T14:13:24.767712+00:00
+updated_at: 2026-10-16T13:23:04.558079+00:00
 tags:
   - cutting
 ---
@@ -58,3 +58,10 @@ Residual cost of standing still, stated plainly: the shim keeps thrift 0.23
 semantics, so we permanently decline 0.24's stricter invalid-message-type and
 wrong-method-name checks, and the `< 0.25` ceiling means thrift 0.25 will need a
 fresh look when it lands.
+
+## DEFERRED 2026-10-16
+
+Ryan, 2026-10-16: "let's wait for a bit". Nothing was posted upstream. The workaround now
+lives in lib/sequel/adapters/hexspace/thrift_compat.rb (moved there in 9a48570), and a
+`# rubocop:disable all` line keeps its verbatim thrift 0.23.0 methods from being restyled
+(df246e8).
