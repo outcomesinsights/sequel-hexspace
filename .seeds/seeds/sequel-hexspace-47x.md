@@ -1,10 +1,12 @@
 ---
 id: sequel-hexspace-47x
 title: Offer ankane/hexspace an upstream fix for thrift 0.24 support
-status: deferred
+status: resolved
 type: exploration
 created_at: 2026-09-05T18:58:14.330453+00:00
-updated_at: 2026-10-16T13:23:04.558079+00:00
+updated_at: 2026-10-26T14:21:51.474090+00:00
+resolved_at: 2026-10-26T14:21:51.474082+00:00
+resolution: 'Moot: hexspace 0.4.0 regenerated its client for thrift >= 0.25; the shim is deleted (108e7b6)'
 tags:
   - cutting
 ---
@@ -65,3 +67,7 @@ Ryan, 2026-10-16: "let's wait for a bit". Nothing was posted upstream. The worka
 lives in lib/sequel/adapters/hexspace/thrift_compat.rb (moved there in 9a48570), and a
 `# rubocop:disable all` line keeps its verbatim thrift 0.23.0 methods from being restyled
 (df246e8).
+
+## RESOLVED 2026-10-26: upstream fixed it
+
+hexspace 0.4.0 (2026-10-15) regenerated its client against thrift >= 0.25 and no longer calls handle_exception or reply_seqid. There is nothing left to offer upstream. sequel-hexspace now requires hexspace >= 0.4 and deleted the shim (bead sequel-hexspace-ig4, commit 108e7b6).
