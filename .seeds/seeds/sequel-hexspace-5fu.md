@@ -1,10 +1,12 @@
 ---
 id: sequel-hexspace-5fu
 title: 'Release step: make sure all gems are up to date'
-status: captured
+status: resolved
 type: question
 created_at: 2026-10-26T13:08:48.908836+00:00
-updated_at: 2026-10-26T13:08:48.908836+00:00
+updated_at: 2026-10-26T13:47:28.415894+00:00
+resolved_at: 2026-10-26T13:47:28.415886+00:00
+resolution: Duplicate of gator-4ws.33, ruled 2026-10-26 for all OI gems; this repo's thrift and hexspace pins are the work that remains
 ---
 
 ## Proposal (Ryan, 2026-10-26)
@@ -62,3 +64,7 @@ changelog says why the newer version is excluded.
 
 The sibling gems have the same release shape. If this becomes a fleet rule, gator owns
 the standard; this seed covers sequel-hexspace only.
+
+## RULED elsewhere, 2026-10-26
+
+Ryan already ruled this the same day in the sequelizer session, recorded in gator's seed gator-4ws.33. The rule: at each release, run bundle update, run the full local CI, commit Gemfile.lock, and review each pin that excludes a newest version. Raise a pin when the tests pass or a small code change makes them pass. A new major version or a bigger change goes to Ryan. The rule lives in gator for all four OI gems, and gator-doctor's [deps] check reports it (log claude_stuff/gator-doctor-20261026-064656.log). The questions above are answered there. The 2.0.1 findings above remain the input for this repo's work.
