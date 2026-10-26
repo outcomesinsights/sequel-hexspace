@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'sequel-hexspace'
-  s.version = '2.0.1'
+  s.version = '2.1.0'
   s.platform = Gem::Platform::RUBY
   # Must stay in step with .rubocop.yml's TargetRubyVersion and the floor of
   # ci.yml's matrix: rubocop's Gemspec/RequiredRubyVersion cop fails the build if

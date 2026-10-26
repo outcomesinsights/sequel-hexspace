@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0] - 2026-10-26
+
+### Changed
+
+- Require `hexspace >= 0.4, < 0.5` (was `>= 0.2.1, < 0.4`) and
+  `thrift >= 0.25, < 0.26` (was `>= 0.23, < 0.25`). hexspace 0.4.0 regenerated
+  its Thrift client against thrift 0.25, which it now requires. A project on
+  hexspace 0.3 or thrift 0.24 must upgrade them to use this release.
+- Delete the `Thrift::Client` compatibility shim. It restored two methods that
+  thrift 0.24 removed and that hexspace 0.3's client still called. hexspace 0.4's
+  client does not call them.
+
 ## [2.0.1] - 2026-10-07
 
 ### Fixed
@@ -68,3 +80,4 @@ The list is reconstructed from git history.
 
 [2.0.0]: https://github.com/outcomesinsights/sequel-hexspace/compare/v1.0.0...v2.0.0
 [2.0.1]: https://github.com/outcomesinsights/sequel-hexspace/compare/v2.0.0...v2.0.1
+[2.1.0]: https://github.com/outcomesinsights/sequel-hexspace/compare/v2.0.1...v2.1.0
