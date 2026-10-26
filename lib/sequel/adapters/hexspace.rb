@@ -1,6 +1,5 @@
 require_relative "shared/hexspace"
 require "hexspace"
-require_relative "hexspace/thrift_compat"
 
 module Sequel
   module Hexspace

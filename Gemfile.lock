@@ -2,9 +2,9 @@ PATH
   remote: .
   specs:
     sequel-hexspace (2.0.1)
-      hexspace (>= 0.2.1, < 0.5)
+      hexspace (>= 0.4, < 0.5)
       sequel (~> 5.0)
-      thrift (>= 0.23, < 0.26)
+      thrift (>= 0.25, < 0.26)
 
 GEM
   remote: https://rubygems.org/
