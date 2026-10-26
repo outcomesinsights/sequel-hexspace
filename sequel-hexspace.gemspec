@@ -38,23 +38,32 @@ END
   # reads `columns`/`rows`/`column_types` off the result object, and the
   # Thrift::Client shim below exists for hexspace's *generated* TCLIService
   # client. Any of those can move in a 0.x minor without hexspace calling it
-  # breaking. 0.3.0 is hexspace's newest release (whole published set checked
-  # 2026-10-02: 0.1.0 .. 0.3.0), so this ceiling excludes nothing that exists --
-  # raising it is a deliberate step that runs the integration suite against the
-  # new minor first, which is exactly the review the thrift ceiling below did not
-  # get when it was widened from < 0.24 to < 0.25.
-  s.add_dependency('hexspace', '>= 0.2.1', '< 0.4')
+  # breaking. Raising it is a deliberate step: diff the new minor's source against
+  # the surface above, then run the integration suite against it.
+  #
+  # 0.4.0 (2026-10-15) was reviewed that way on 2026-10-26. It makes
+  # `result_object: true` the default (this adapter already passes it), makes
+  # Result Enumerable, and regenerates the TCLIService client against thrift
+  # >= 0.25, which it now requires. The constructor keywords and Result's
+  # rows/columns/column_types readers are unchanged.
+  s.add_dependency('hexspace', '>= 0.2.1', '< 0.5')
   # thrift 0.24 removed Thrift::Client#handle_exception and #reply_seqid, which
   # hexspace's generated client still calls -> NoMethodError on every Spark
   # connection (Sequel::DatabaseConnectionError). Both are restored by the shim
   # in lib/sequel/adapters/hexspace/thrift_compat.rb, covered by
   # test/thrift_client_compat_test.rb, so 0.24 is supported rather than excluded.
+  # hexspace 0.4's regenerated client no longer calls either method, so the shim
+  # matters only to a bundle that resolves hexspace < 0.4.
+  #
+  # 0.25.0 (2026-09-30) was reviewed 2026-10-26: it rewrites only the send path
+  # of Thrift::Client. The three primitives the shim calls (dequeue_pending_seqid,
+  # validate_message_begin, MessageTypes::EXCEPTION) are unchanged.
   #
   # The floor is 0.23 rather than hexspace's own 0.18 because thrift 0.22.0 emits
   # a frozen-string-literal warning on Ruby 3.4+ (THRIFT-5909) that this gem used
   # to silence with a backport nothing here ever loaded -- the lockfile resolves
   # 0.24. Raising the floor deleted the backport (sequel-hexspace-g8b.3).
-  s.add_dependency('thrift', '>= 0.23', '< 0.25')
+  s.add_dependency('thrift', '>= 0.23', '< 0.26')
   # The bounds on minitest, minitest-hooks and minitest-global_expectations below are
   # development-only: nothing that resolves this gem as a dependency installs
   # them, so each is a checkpoint on this repo's own dev/CI environment rather

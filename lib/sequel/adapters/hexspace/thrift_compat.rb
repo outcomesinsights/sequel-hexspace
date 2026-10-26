@@ -7,11 +7,7 @@
 # recv_OpenSession with NoMethodError, surfacing as
 # Sequel::DatabaseConnectionError.
 #
-# Upstream will not fix this for us: hexspace's generated client is untouched
-# since 2023-05-08, the latest release (0.3.0, Apr 2025) predates thrift 0.24,
-# and no issue or PR there mentions thrift. Regenerating that client against
-# 0.24 would drop support for thrift < 0.24, which is a maintainer's decision
-# rather than ours to force.
+# hexspace 0.3.0 and older ship a client generated in 2023, before thrift 0.24.
 #
 # Both methods are restored verbatim from thrift 0.23.0 and are implemented
 # purely in terms of primitives thrift 0.24 still provides and still uses in
@@ -19,8 +15,12 @@
 # dequeue_pending_seqid per call on both the reply and the exception path.
 #
 # Note this keeps 0.23 semantics -- it does NOT add 0.24's stricter checks for
-# invalid message type and wrong method name. Remove once hexspace regenerates
-# its client against thrift >= 0.24.
+# invalid message type and wrong method name.
+#
+# hexspace 0.4.0 (2026-10-15) regenerated its client against thrift >= 0.25 and
+# no longer calls either method, so this shim is dead code under hexspace 0.4.
+# It stays while the gemspec admits hexspace < 0.4. Delete it when that floor
+# rises to 0.4.
 if defined?(Thrift::Client)
   # Both method bodies below are copied verbatim from thrift 0.23.0 and
   # deliberately not restyled: keeping them byte-comparable with upstream is
