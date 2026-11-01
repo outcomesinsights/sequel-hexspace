@@ -192,7 +192,7 @@ jobs:
       # boundary this job should not cross. ci.yml keeps its cache deliberately
       # -- it runs on push-to-main and pull_request, so it WRITES those caches
       # rather than consuming one across a boundary.
-      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: "4.0"
           bundler-cache: false
