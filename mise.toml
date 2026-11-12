@@ -33,6 +33,10 @@ uv = "0"
 # the fmt layer and the formatters it drives
 "aqua:numtide/treefmt" = "2"
 shfmt = "3"
+# prettier uses mise's npm backend, which installs the package and NO node: it runs
+# with whatever node is on PATH, and fails with "exec: node: not found" on a host with
+# none (t_shank's self-hosted CI, 2026-10-27). Copied from gator's canon (gator-ncm).
+node = "24"
 prettier = "3"
 taplo = "0"
 
