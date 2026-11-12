@@ -130,7 +130,9 @@ pre-push: ci
 pre-commit: fmt-check lint hygiene seeds-check
 
 # Not format validity -- content plausibility, plus the `--against-git` tier that
-# compares the committed corpus against the working tree. Two things it catches
+# compares the committed corpus against the working tree. `--gate` runs both, and
+# it is the only form that reads SEEDS_GATE_CONFIRM=1, the escape for an intended
+# mass rewrite of the seeds; plain `--against-git` ignores it. Two things it catches
 # that nothing else here does: a bulk sweep rewriting most of the corpus in one
 # field, and the single seed whose body moved while its `updated_at` did not,
 # which is the signature of a formatter or linter reaching into the store. That
@@ -143,7 +145,7 @@ pre-commit: fmt-check lint hygiene seeds-check
 #
 # Verify the seeds store is plausible and has not been rewritten underneath us.
 seeds-check:
-    @command -v seeds >/dev/null 2>&1 || exit 0; seeds check --against-git
+    @command -v seeds >/dev/null 2>&1 || exit 0; seeds check --gate
 
 # Inherited from overcommit when it was removed on 2026-09-12: MergeConflicts,
 # YamlSyntax, JsonSyntax. Its RuboCop and test targets were already covered by
