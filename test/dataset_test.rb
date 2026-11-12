@@ -91,7 +91,7 @@ describe "Simple Dataset operations" do
 
   it "should iterate over records as they come in" do
     called = false
-    @ds.each { |row| called = true; _(row).must_equal(id: 1, number: 10) }
+    @ds.each { |row| called = true; _(row).must_equal({ id: 1, number: 10 }) }
     called.must_equal true
   end
 
