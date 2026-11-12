@@ -264,7 +264,6 @@ describe "Bound Argument Types" do
   end
   after do
     Sequel.default_timezone = nil
-    Sequel.datetime_class = Time
   end
   after(:all) do
     @db.drop_table?(:items)
@@ -275,18 +274,20 @@ describe "Bound Argument Types" do
   end
 
   it "should handle datetime type" do
-    Sequel.datetime_class = DateTime
-    @ds.filter(dt: :$x).prepare(:first, :ps_datetime).call(x: @vs[:dt])[:dt].must_equal @vs[:dt]
+    with_datetime_class_datetime do
+      @ds.filter(dt: :$x).prepare(:first, :ps_datetime).call(x: @vs[:dt])[:dt].must_equal @vs[:dt]
+    end
   end
 
   it "should handle datetime type with fractional seconds" do
-    Sequel.datetime_class = DateTime
-    Sequel.default_timezone = :utc
-    fract_time = DateTime.parse("2010-10-12 13:14:15.500000")
-    @ds.delete
-    @ds.prepare(:insert, :ps_datetime_up, dt: :$x).call(x: fract_time)
-    dt = @ds.filter(dt: :$x).prepare(:first, :ps_datetime).call(x: fract_time)[:dt]
-    @ds.literal(dt).must_equal @ds.literal(fract_time)
+    with_datetime_class_datetime do
+      Sequel.default_timezone = :utc
+      fract_time = DateTime.parse("2010-10-12 13:14:15.500000")
+      @ds.delete
+      @ds.prepare(:insert, :ps_datetime_up, dt: :$x).call(x: fract_time)
+      dt = @ds.filter(dt: :$x).prepare(:first, :ps_datetime).call(x: fract_time)[:dt]
+      @ds.literal(dt).must_equal @ds.literal(fract_time)
+    end
   end
 
   it "should handle blob type" do
